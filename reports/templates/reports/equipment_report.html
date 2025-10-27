@@ -1,0 +1,253 @@
+{% load dict_filters %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Reporte de Mantenimiento de Equipo</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; color: #555; font-size: 12px; }
+        .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+        .equipment-info { margin-bottom: 20px; }
+        .maintenance-item { margin-bottom: 15px; border: 1px solid #ddd; padding: 10px; page-break-inside: avoid; }
+        .photos { margin-top: 10px; }
+        .photo { max-width: 150px; max-height: 150px; margin: 5px; display: inline-block; }
+        .signature { margin-top: 10px; }
+        .activities-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        .activities-table th, .activities-table td { border: 1px solid #ddd; padding: 5px; text-align: left; }
+        .activities-table th { background-color: #f5f5f5; }
+        .signature-section { margin-top: 20px; display: flex; justify-content: space-between; }
+        .signature-box { width: 45%; border: 1px solid #ddd; padding: 10px; }
+        .signature-image { max-width: 200px; max-height: 100px; border: 1px solid #ddd; margin-top: 5px; }
+        h1, h2, h3, h4 { color: #333; }
+        .info-grid { display: table; width: 100%; margin-bottom: 20px; }
+        .info-row { display: table-row; }
+        .info-cell { display: table-cell; padding: 5px; width: 25%; text-align: center; }
+        .info-label { font-weight: bold; }
+        .radio-option { display: inline-block; margin-right: 15px; }
+        .radio-option input { margin-right: 5px; }
+        .incidencia-section { background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    {% for maintenance in maintenances %}
+    <div class="header">
+        <h1>
+            {% if maintenance.maintenance_type == 'computer' %}
+                RUTINA MANTENIMIENTO PREVENTIVO DE EQUIPOS DE CÓMPUTO
+            {% else %}
+                RUTINA DE MANTENIMIENTO PREVENTIVO PARA IMPRESORAS Y ESCÁNER
+            {% endif %}
+        </h1>
+        <p>ALCALDÍA DE PASTO – GESTIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN</p>
+        <p>Código: GTI-F-{% if maintenance.maintenance_type == 'computer' %}015{% else %}016{% endif %}  Versión: {% if maintenance.maintenance_type == 'computer' %}03{% else %}02{% endif %}  Vigencia: 18-Jul-19</p>
+    </div>
+
+    {% if maintenance.maintenance_type == 'computer' %}
+    <div class="info-grid">
+        <div class="info-row">
+            <div class="info-cell"><span class="info-label">Sede:</span> {{ maintenance.sede|default:"" }}</div>
+            <div class="info-cell"><span class="info-label">Dependencia:</span> {{ maintenance.dependencia|default:"" }}</div>
+            <div class="info-cell"><span class="info-label">Oficina:</span> {{ maintenance.oficina|default:"" }}</div>
+            <div class="info-cell"><span class="info-label">Placa Torre (si no tiene, informar identificación):</span> {{ maintenance.placa|default:"" }}</div>
+        </div>
+        <div class="info-row">
+            <div class="info-cell"><span class="info-label">Fecha Mantenimiento:</span> Día {{ maintenance.maintenance_date.day }} / Mes {{ maintenance.maintenance_date.month }} / Año {{ maintenance.maintenance_date.year }}</div>
+            <div class="info-cell"><span class="info-label">Hora Inicio:</span> {{ maintenance.hora_inicio|default:"_______" }}</div>
+            <div class="info-cell"><span class="info-label">Hora Final:</span> {{ maintenance.hora_final|default:"_______" }}</div>
+            <div class="info-cell"><span class="info-label">Realizado por:</span> {{ maintenance.performed_by }}</div>
+        </div>
+    </div>
+    {% else %}
+    <div class="info-grid">
+        <div class="info-row">
+            <div class="info-cell"><span class="info-label">Sede:</span> {{ maintenance.sede|default:"" }}</div>
+            <div class="info-cell"><span class="info-label">Dependencia:</span> {{ maintenance.dependencia|default:"" }}</div>
+            <div class="info-cell"><span class="info-label">Oficina:</span> {{ maintenance.oficina|default:"" }}</div>
+            <div class="info-cell"><span class="info-label">Placa:</span> {{ maintenance.placa|default:"" }}</div>
+        </div>
+        <div class="info-row">
+            <div class="info-cell"><span class="info-label">Fecha Mantenimiento:</span> {{ maintenance.maintenance_date|date:"d/m/Y" }}</div>
+            <div class="info-cell"><span class="info-label">Hora Inicio:</span> {{ maintenance.hora_inicio|default:"_______" }}</div>
+            <div class="info-cell"><span class="info-label">Hora Final:</span> {{ maintenance.hora_final|default:"_______" }}</div>
+            <div class="info-cell"><span class="info-label">Marca y Modelo Impresora:</span> {{ maintenance.equipment.name }}</div>
+        </div>
+        <div class="info-row">
+            <div class="info-cell"><span class="info-label">Marca y Modelo Escáner:</span> ___________________________</div>
+            <div class="info-cell"></div>
+            <div class="info-cell"></div>
+            <div class="info-cell"></div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if maintenance.is_incident %}
+    <div class="incidencia-section">
+        <h2>INCIDENCIA</h2>
+        <p>{{ maintenance.description }}</p>
+    </div>
+    {% else %}
+    {% if maintenance.maintenance_type == 'computer' %}
+    <h2>RUTINA DE HARDWARE</h2>
+    <table class="activities-table">
+        <tr>
+            <th>Actividad</th>
+            <th>SI</th>
+            <th>N.A.</th>
+        </tr>
+        <tr><td>Limpieza interna de la torre</td><td>{% if maintenance.activities|get_item:"Limpieza interna de la torre" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Limpieza interna de la torre" == None %}✓{% endif %}</td></tr>
+        <tr><td>Limpieza del teclado</td><td>{% if maintenance.activities|get_item:"Limpieza del teclado" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Limpieza del teclado" == None %}✓{% endif %}</td></tr>
+        <tr><td>Limpieza del monitor</td><td>{% if maintenance.activities|get_item:"Limpieza del monitor" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Limpieza del monitor" == None %}✓{% endif %}</td></tr>
+        <tr><td>Verificación de cables de poder y de datos</td><td>{% if maintenance.activities|get_item:"Verificación de cables de poder y de datos" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Verificación de cables de poder y de datos" == None %}✓{% endif %}</td></tr>
+        <tr><td>Ajuste de tarjetas (Memoria - Video - Red)</td><td>{% if maintenance.activities|get_item:"Ajuste de tarjetas (Memoria - Video - Red)" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Ajuste de tarjetas (Memoria - Video - Red)" == None %}✓{% endif %}</td></tr>
+        <tr><td>Lubricación del ventilador de la torre</td><td>{% if maintenance.activities|get_item:"Lubricación del ventilador de la torre" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Lubricación del ventilador de la torre" == None %}✓{% endif %}</td></tr>
+        <tr><td>Lubricación del ventilador del procesador</td><td>{% if maintenance.activities|get_item:"Lubricación del ventilador del procesador" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Lubricación del ventilador del procesador" == None %}✓{% endif %}</td></tr>
+        <tr><td>Lubricación del ventilador del fuente</td><td>{% if maintenance.activities|get_item:"Lubricación del ventilador del fuente" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Lubricación del ventilador del fuente" == None %}✓{% endif %}</td></tr>
+    </table>
+
+    <h2>RUTINA DE SOFTWARE</h2>
+    <table class="activities-table">
+        <tr>
+            <th>Actividad</th>
+            <th>SI</th>
+            <th>N.A. / NO</th>
+        </tr>
+        <tr><td>Crear partición de datos</td><td>{% if maintenance.activities|get_item:"Crear partición de datos" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Crear partición de datos" != True %}✓{% endif %}</td></tr>
+        <tr><td>Mover información a partición de datos</td><td>{% if maintenance.activities|get_item:"Mover información a partición de datos" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Mover información a partición de datos" != True %}✓{% endif %}</td></tr>
+        <tr><td>Reinstalar sistema operativo</td><td>{% if maintenance.activities|get_item:"Reinstalar sistema operativo" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Reinstalar sistema operativo" != True %}✓{% endif %}</td></tr>
+        <tr><td>Instalar antivirus</td><td>{% if maintenance.activities|get_item:"Instalar antivirus" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Instalar antivirus" != True %}✓{% endif %}</td></tr>
+        <tr><td>Análisis en busca de software malicioso</td><td>{% if maintenance.activities|get_item:"Análisis en busca de software malicioso" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Análisis en busca de software malicioso" != True %}✓{% endif %}</td></tr>
+        <tr><td>Diagnosticar funcionamiento aplicaciones instaladas</td><td>{% if maintenance.activities|get_item:"Diagnosticar funcionamiento aplicaciones instaladas" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Diagnosticar funcionamiento aplicaciones instaladas" != True %}✓{% endif %}</td></tr>
+        <tr><td>Suspender actualizaciones automáticas S.O.</td><td>{% if maintenance.activities|get_item:"Suspender actualizaciones automáticas S.O." == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Suspender actualizaciones automáticas S.O." != True %}✓{% endif %}</td></tr>
+        <tr><td>Instalar programas esenciales (ofimática, grabador de discos)</td><td>{% if maintenance.activities|get_item:"Instalar programas esenciales (ofimática, grabador de discos)" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Instalar programas esenciales (ofimática, grabador de discos)" != True %}✓{% endif %}</td></tr>
+        <tr><td>Configurar usuarios administrador local</td><td>{% if maintenance.activities|get_item:"Configurar usuarios administrador local" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Configurar usuarios administrador local" != True %}✓{% endif %}</td></tr>
+        <tr><td>Modificar contraseña de administrador</td><td>{% if maintenance.activities|get_item:"Modificar contraseña de administrador" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Modificar contraseña de administrador" != True %}✓{% endif %}</td></tr>
+        <tr><td>Configurar nombre equipo</td><td>{% if maintenance.activities|get_item:"Configurar nombre equipo" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Configurar nombre equipo" != True %}✓{% endif %}</td></tr>
+        <tr><td>El equipo tiene estabilizador</td><td>{% if maintenance.activities|get_item:"El equipo tiene estabilizador" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"El equipo tiene estabilizador" != True %}✓{% endif %}</td></tr>
+        <tr><td>El escritorio está limpio</td><td>{% if maintenance.activities|get_item:"El escritorio está limpio" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"El escritorio está limpio" != True %}✓{% endif %}</td></tr>
+        <tr><td>Desactivar aplicaciones al inicio de Windows</td><td>{% if maintenance.activities|get_item:"Desactivar aplicaciones al inicio de Windows" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Desactivar aplicaciones al inicio de Windows" != True %}✓{% endif %}</td></tr>
+        <tr><td>Configurar página de inicio navegador</td><td>{% if maintenance.activities|get_item:"Configurar página de inicio navegador" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Configurar página de inicio navegador" != True %}✓{% endif %}</td></tr>
+        <tr><td>Configurar fondo de pantalla institucional</td><td>{% if maintenance.activities|get_item:"Configurar fondo de pantalla institucional" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Configurar fondo de pantalla institucional" != True %}✓{% endif %}</td></tr>
+        <tr><td>Configurar protector de pantalla institucional</td><td>{% if maintenance.activities|get_item:"Configurar protector de pantalla institucional" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Configurar protector de pantalla institucional" != True %}✓{% endif %}</td></tr>
+        <tr><td>Verificar funcionamiento general</td><td>{% if maintenance.activities|get_item:"Verificar funcionamiento general" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Verificar funcionamiento general" != True %}✓{% endif %}</td></tr>
+        <tr><td>Inventario de equipo</td><td>{% if maintenance.activities|get_item:"Inventario de equipo" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Inventario de equipo" != True %}✓{% endif %}</td></tr>
+        <tr><td>Limpieza de registros y eliminación de archivos temporales</td><td>{% if maintenance.activities|get_item:"Limpieza de registros y eliminación de archivos temporales" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Limpieza de registros y eliminación de archivos temporales" != True %}✓{% endif %}</td></tr>
+        <tr><td>Creación Punto de Restauración</td><td>{% if maintenance.activities|get_item:"Creación Punto de Restauración" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Creación Punto de Restauración" != True %}✓{% endif %}</td></tr>
+        <tr><td>Verificar espacio en disco</td><td>{% if maintenance.activities|get_item:"Verificar espacio en disco" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Verificar espacio en disco" != True %}✓{% endif %}</td></tr>
+        <tr><td>Desactivar software no autorizado</td><td>{% if maintenance.activities|get_item:"Desactivar software no autorizado" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Desactivar software no autorizado" != True %}✓{% endif %}</td></tr>
+        <tr><td>Analizar disco duro</td><td>{% if maintenance.activities|get_item:"Analizar disco duro" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Analizar disco duro" != True %}✓{% endif %}</td></tr>
+        <tr><td>El usuario de Windows tiene contraseña</td><td>{% if maintenance.activities|get_item:"El usuario de Windows tiene contraseña" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"El usuario de Windows tiene contraseña" != True %}✓{% endif %}</td></tr>
+    </table>
+    {% else %}
+    <h2>RUTINA DE ESCÁNER</h2>
+    <table class="activities-table">
+        <tr>
+            <th>Actividad</th>
+            <th>SI</th>
+            <th>N.A.</th>
+        </tr>
+        <tr><td>Limpieza general</td><td>{% if maintenance.activities|get_item:"Limpieza general" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Limpieza general" == None %}✓{% endif %}</td></tr>
+        <tr><td>Alineación de papel</td><td>{% if maintenance.activities|get_item:"Alineación de papel" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Alineación de papel" == None %}✓{% endif %}</td></tr>
+        <tr><td>Configuración del equipo</td><td>{% if maintenance.activities|get_item:"Configuración del equipo" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Configuración del equipo" == None %}✓{% endif %}</td></tr>
+        <tr><td>Pruebas de funcionamiento</td><td>{% if maintenance.activities|get_item:"Pruebas de funcionamiento" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Pruebas de funcionamiento" == None %}✓{% endif %}</td></tr>
+    </table>
+
+    <h2>RUTINA DE IMPRESORAS</h2>
+    <table class="activities-table">
+        <tr>
+            <th>Actividad</th>
+            <th>SI</th>
+            <th>N.A.</th>
+        </tr>
+        <tr><td>Limpieza de carcasa</td><td>{% if maintenance.activities|get_item:"Limpieza de carcasa" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Limpieza de carcasa" == None %}✓{% endif %}</td></tr>
+        <tr><td>Limpieza tóner</td><td>{% if maintenance.activities|get_item:"Limpieza tóner" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Limpieza tóner" == None %}✓{% endif %}</td></tr>
+        <tr><td>Limpieza tarjeta lógica</td><td>{% if maintenance.activities|get_item:"Limpieza tarjeta lógica" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Limpieza tarjeta lógica" == None %}✓{% endif %}</td></tr>
+        <tr><td>Limpieza de sensores</td><td>{% if maintenance.activities|get_item:"Limpieza de sensores" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Limpieza de sensores" == None %}✓{% endif %}</td></tr>
+        <tr><td>Limpieza de rodillo</td><td>{% if maintenance.activities|get_item:"Limpieza de rodillo" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Limpieza de rodillo" == None %}✓{% endif %}</td></tr>
+        <tr><td>Limpieza de correas dentadas o guías</td><td>{% if maintenance.activities|get_item:"Limpieza de correas dentadas o guías" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Limpieza de correas dentadas o guías" == None %}✓{% endif %}</td></tr>
+        <tr><td>Limpieza de ventiladores</td><td>{% if maintenance.activities|get_item:"Limpieza de ventiladores" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Limpieza de ventiladores" == None %}✓{% endif %}</td></tr>
+        <tr><td>Limpieza de cabezal impresora matriz de punto e inyección tinta</td><td>{% if maintenance.activities|get_item:"Limpieza de cabezal impresora matriz de punto e inyección tinta" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Limpieza de cabezal impresora matriz de punto e inyección tinta" == None %}✓{% endif %}</td></tr>
+        <tr><td>Limpieza de engranaje</td><td>{% if maintenance.activities|get_item:"Limpieza de engranaje" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Limpieza de engranaje" == None %}✓{% endif %}</td></tr>
+        <tr><td>Limpieza de fusor</td><td>{% if maintenance.activities|get_item:"Limpieza de fusor" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Limpieza de fusor" == None %}✓{% endif %}</td></tr>
+        <tr><td>Limpieza tarjeta de poder</td><td>{% if maintenance.activities|get_item:"Limpieza tarjeta de poder" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Limpieza tarjeta de poder" == None %}✓{% endif %}</td></tr>
+        <tr><td>Alineación de rodillos alimentación de papel</td><td>{% if maintenance.activities|get_item:"Alineación de rodillos alimentación de papel" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Alineación de rodillos alimentación de papel" == None %}✓{% endif %}</td></tr>
+        <tr><td>Configuración del equipo</td><td>{% if maintenance.activities|get_item:"Configuración del equipo" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Configuración del equipo" == None %}✓{% endif %}</td></tr>
+        <tr><td>Pruebas de funcionamiento</td><td>{% if maintenance.activities|get_item:"Pruebas de funcionamiento" == True %}✓{% endif %}</td><td>{% if maintenance.activities|get_item:"Pruebas de funcionamiento" == None %}✓{% endif %}</td></tr>
+    </table>
+
+    <h2>DIAGNÓSTICO</h2>
+    <p>{{ maintenance.observaciones_generales|default:"" }}</p>
+
+    <h2>OBSERVACIONES ADICIONALES</h2>
+    <p>{{ maintenance.observaciones_seguridad|default:"" }}</p>
+    {% endif %}
+    {% endif %}
+
+    {% if not maintenance.is_incident %}
+    <div class="signature-section">
+        {% if maintenance.maintenance_type == 'computer' %}
+        <div class="signature-box">
+            <h4>Responsable de Mantenimiento</h4>
+            <p><strong>Firma:</strong></p>
+            {% if maintenance.signature %}
+            <img src="{{ maintenance.signature.image.url }}" alt="Firma Responsable" class="signature-image" />
+            {% endif %}
+            <p><strong>Nombre:</strong> {{ maintenance.performed_by }}</p>
+            <p><strong>Cargo:</strong> ____________________</p>
+        </div>
+
+        <div class="signature-box">
+            <h4>Usuario del Equipo</h4>
+            <p><strong>Firma:</strong></p>
+            {% if maintenance.second_signature %}
+            <img src="{{ maintenance.second_signature.image.url }}" alt="Firma Usuario" class="signature-image" />
+            {% endif %}
+            <p><strong>Nombre:</strong> ____________________</p>
+            <p><strong>Cédula:</strong> ____________________</p>
+            <p><strong>Cómo califica el servicio:</strong></p>
+            <p>
+                {% if maintenance.calificacion_servicio == 'excelente' %}☑{% else %}☐{% endif %} Excelente  {% if maintenance.calificacion_servicio == 'bueno' %}☑{% else %}☐{% endif %} Bueno  {% if maintenance.calificacion_servicio == 'regular' %}☑{% else %}☐{% endif %} Regular  {% if maintenance.calificacion_servicio == 'malo' %}☑{% else %}☐{% endif %} Malo
+            </p>
+            <p><strong>Observaciones del usuario:</strong> {{ maintenance.observaciones_usuario|default:"" }}</p>
+        </div>
+        {% else %}
+        <div class="signature-box">
+            <h4>Responsable de Mantenimiento</h4>
+            <p><strong>Firma:</strong></p>
+            {% if maintenance.signature %}
+            <img src="{{ maintenance.signature.image.url }}" alt="Firma Responsable" class="signature-image" />
+            {% endif %}
+            <p><strong>Nombre:</strong> {{ maintenance.performed_by }}</p>
+            <p><strong>Cargo:</strong> ____________________</p>
+        </div>
+
+        <div class="signature-box">
+            <h4>Responsable del Equipo</h4>
+            <p><strong>Firma:</strong></p>
+            {% if maintenance.second_signature %}
+            <img src="{{ maintenance.second_signature.image.url }}" alt="Firma Responsable Equipo" class="signature-image" />
+            {% endif %}
+            <p><strong>Nombre:</strong> ____________________</p>
+            <p><strong>Cargo:</strong> ____________________</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if maintenance.photos.all %}
+    <div class="photos">
+        <h4>Imágenes:</h4>
+        {% for photo in maintenance.photos.all %}
+        <img src="{{ photo.image.url }}" alt="Foto {{ forloop.counter }}" class="photo" />
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div style="page-break-after: always;"></div>
+    {% endfor %}
+
+    <div class="footer">
+        <p>Reporte generado el: {{ generated_at|date:"F j, Y, g:i a" }}</p>
+        <p>Generado por: {{ generated_by }}</p>
+    </div>
+</body>
+</html>

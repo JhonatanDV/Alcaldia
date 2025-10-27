@@ -1,0 +1,50 @@
+/* Custom CSS for Django Admin - Black text */
+body {
+    color: #000 !important;
+}
+
+.content {
+    color: #000 !important;
+}
+
+.form-row > div {
+    color: #000 !important;
+}
+
+input, textarea, select {
+    color: #000 !important;
+}
+
+label {
+    color: #000 !important;
+}
+
+.help {
+    color: #666 !important;
+}
+
+.errorlist li {
+    color: #d9534f !important;
+}
+
+.success {
+    color: #5cb85c !important;
+}
+
+.info {
+    color: #5bc0de !important;
+}
+
+.warning {
+    color: #f0ad4e !important;
+}
+
+/* Ensure all text in admin is black */
+* {
+    color: #000 !important;
+}
+
+/* Override any gray text */
+.text-gray-500, .text-gray-600, .text-gray-700 {
+    color: #000 !important;
+}

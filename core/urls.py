@@ -1,0 +1,60 @@
+from django.contrib import admin
+from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework import routers
+from api.views import EquipmentViewSet, MaintenanceViewSet, ReportListView, ReportGenerateView
+from api.views_auth import LogoutView
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from api.models import AuditLog
+from django.contrib.auth.models import User
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def audit_logs_view(request):
+    logs = AuditLog.objects.all().order_by('-timestamp')
+    data = [
+        {
+            'user': log.user.username if log.user else 'Anonymous',
+            'action': log.action,
+            'model': log.model,
+            'object_id': log.object_id,
+            'timestamp': log.timestamp,
+            'changes': log.changes
+        } for log in logs
+    ]
+    return Response(data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_info_view(request):
+    user = request.user
+    groups = list(user.groups.values_list('name', flat=True))
+    return Response({
+        'id': user.id,
+        'username': user.username,
+        'groups': groups
+    })
+
+router = routers.DefaultRouter()
+router.register(r'equipments', EquipmentViewSet)
+router.register(r'maintenances', MaintenanceViewSet)
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/logout/', LogoutView.as_view(), name='logout'),
+    path('api/user-info/', user_info_view, name='user-info'),
+    path('api/audit-logs/', audit_logs_view, name='audit-logs'),
+    path('api/reports/', ReportListView.as_view(), name='reports'),
+    path('api/reports/generate/', ReportGenerateView.as_view(), name='reports-generate'),
+    path('api/', include(router.urls)),
+]
+
+# Serve media files during development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

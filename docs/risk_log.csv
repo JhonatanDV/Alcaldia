@@ -1,0 +1,5 @@
+ID,Riesgo,Probabilidad,Impacto,Mitigación,Responsable,Estado,Espiral,Notas
+R1,Falta de experiencia en Django/Next,Media,Alto,"Spike de 8h + pair programming + docs de onboarding",Dev,Cerrado,0,"Plan de pairing: 4h con DevOps; spike auth y CRUD"
+R2,Errores en implementación de RBAC,Baja,Medio,"Tests unitarios + revisión de permisos",Dev,Cerrado,1,"Implementado con custom permissions"
+R3,Fallas en uploads a MinIO,Media,Alto,"Configuración local + tests de integración",Dev,Cerrado,1,"Server-side upload con MinIO"
+R4,Problemas de rendimiento con audit logs,Baja,Bajo,"Optimización de signals + indexing",Dev,Cerrado,1,"Signals eficientes para logging"
