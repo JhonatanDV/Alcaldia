@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
-import SignaturePad from "react-signature-canvas";
+import SignatureCanvas from "react-signature-canvas";
 
 interface MaintenanceFormProps {
   token: string;
@@ -39,8 +39,8 @@ export default function MaintenanceForm({
   const [secondSignature, setSecondSignature] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const sigPadRef = useRef<SignaturePad>(null);
-  const secondSigPadRef = useRef<SignaturePad>(null);
+  const sigPadRef = useRef<SignatureCanvas>(null);
+  const secondSigPadRef = useRef<SignatureCanvas>(null);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -79,14 +79,16 @@ export default function MaintenanceForm({
   };
 
   const clearSignature = () => {
-    sigPadRef.current?.clear();
-    setSignature(null);
+    if (sigPadRef.current) {
+      sigPadRef.current.clear();
+    }
   };
 
-  const saveSignature = () => {
+  const getSignatureData = () => {
     if (sigPadRef.current) {
-      setSignature(sigPadRef.current.toDataURL());
+      return sigPadRef.current.toDataURL();
     }
+    return null;
   };
 
   const clearSecondSignature = () => {
@@ -748,20 +750,13 @@ export default function MaintenanceForm({
             Firma Digital del Técnico
           </label>
           <div className="border border-gray-300 rounded-md p-4">
-            <SignaturePad
+            <SignatureCanvas
               ref={sigPadRef}
               canvasProps={{
                 className: "w-full h-32 border border-gray-200 rounded",
               }}
             />
             <div className="mt-2 flex space-x-2">
-              <button
-                type="button"
-                onClick={saveSignature}
-                className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                Guardar Firma
-              </button>
               <button
                 type="button"
                 onClick={clearSignature}
@@ -779,7 +774,7 @@ export default function MaintenanceForm({
               Segunda Firma (Opcional)
             </label>
             <div className="border border-gray-300 rounded-md p-4">
-              <SignaturePad
+              <SignatureCanvas
                 ref={secondSigPadRef}
                 canvasProps={{
                   className: "w-full h-32 border border-gray-200 rounded",

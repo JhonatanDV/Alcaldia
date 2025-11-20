@@ -53,8 +53,12 @@ urlpatterns = [
     path('api/reports/', ReportListView.as_view(), name='reports'),
     path('api/reports/generate/', ReportGenerateView.as_view(), name='reports-generate'),
     path('api/', include(router.urls)),
+    path('api/dashboard/', include('api.urls_dashboard')),
+    path('api/user-management/', include('api.urls_user_management')),
+    path('api/pdf-package/', include('api.urls_pdf_package')),
 ]
 
 # Serve media files during development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

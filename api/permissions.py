@@ -1,49 +1,77 @@
 from rest_framework import permissions
 
-class IsAdminOrTechnician(permissions.BasePermission):
-    """
-    Custom permission to only allow admins or technicians to access.
-    """
-    def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        return request.user.groups.filter(name__in=['Admin', 'Technician']).exists()
 
 class IsAdmin(permissions.BasePermission):
     """
-    Custom permission to only allow admins to access.
+    Permission class that only allows admin users.
     """
     def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        return request.user.groups.filter(name='Admin').exists()
+        return request.user and request.user.is_staff
+
+    def has_object_permission(self, request, view, obj):
+        return request.user and request.user.is_staff
+
 
 class IsTechnician(permissions.BasePermission):
     """
-    Custom permission to only allow technicians to access.
+    Permission class for technicians.
     """
     def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        return request.user.groups.filter(name='Technician').exists()
+        return request.user and (
+            request.user.is_staff or
+            request.user.groups.filter(name='Tecnico').exists()
+        )
+
+    def has_object_permission(self, request, view, obj):
+        return request.user and (
+            request.user.is_staff or
+            request.user.groups.filter(name='Tecnico').exists()
+        )
+
+
+class IsAdminOrTechnician(permissions.BasePermission):
+    """
+    Permission class that allows admin or technician users.
+    """
+    def has_permission(self, request, view):
+        return request.user and (
+            request.user.is_staff or
+            request.user.groups.filter(name='Tecnico').exists()
+        )
+
+    def has_object_permission(self, request, view, obj):
+        return request.user and (
+            request.user.is_staff or
+            request.user.groups.filter(name='Tecnico').exists()
+        )
+
 
 class IsOwnerOrAdmin(permissions.BasePermission):
     """
-    Custom permission to only allow owners (who created the maintenance) or admins to edit/delete.
+    Permission class that allows owners or admins.
     """
     def has_object_permission(self, request, view, obj):
-        if not request.user or not request.user.is_authenticated:
-            return False
-
-        # Admins can do anything
-        if request.user.groups.filter(name='Admin').exists():
+        # Admins have full access
+        if request.user.is_staff:
             return True
-
-        # For Maintenance objects, check if user is the one who performed it
-        # Since we don't have a direct user field, we'll check the performed_by field
-        # In a real app, you'd want a proper user relationship
-        if hasattr(obj, 'performed_by'):
-            # This is a simple check - in production, use proper user relationships
-            return obj.performed_by == request.user.get_full_name() or obj.performed_by == request.user.username
-
+        
+        # Check if user is owner
+        if hasattr(obj, 'reportado_por'):
+            return obj.reportado_por == request.user
+        if hasattr(obj, 'tecnico_responsable'):
+            return obj.tecnico_responsable == request.user
+        if hasattr(obj, 'user'):
+            return obj.user == request.user
+        
         return False
+
+
+class CanViewReports(permissions.BasePermission):
+    """
+    Permission for viewing reports.
+    """
+    def has_permission(self, request, view):
+        return request.user and (
+            request.user.is_staff or
+            request.user.groups.filter(name__in=['Tecnico', 'Supervisor', 'Coordinador']).exists()
+        )

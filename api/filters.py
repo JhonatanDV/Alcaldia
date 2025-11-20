@@ -17,7 +17,7 @@ class MaintenanceFilter(django_filters.FilterSet):
     class Meta:
         model = Maintenance
         fields = [
-            'equipment', 'maintenance_date', 'performed_by', 'equipment_code',
+            'equipo', 'fecha_mantenimiento', 'tecnico_responsable', 'equipment_code',
             'equipment_location', 'date_from', 'date_to', 'sede', 'dependencia',
             'oficina', 'placa', 'maintenance_type', 'is_incident'
         ]

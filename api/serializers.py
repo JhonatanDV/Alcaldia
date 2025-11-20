@@ -1,168 +1,177 @@
 from rest_framework import serializers
-from .models import Equipment, Maintenance, Photo, Signature, SecondSignature, Report
-from .validators import validate_file_size, validate_file_type, validate_photo_limit
+from django.contrib.auth.models import User, Group
+from .models import (
+    Equipment, 
+    Maintenance, 
+    Incident, 
+    MaintenanceReport,
+    Photo,
+    Signature,
+    SecondSignature,
+    Report
+)
+
 
 class PhotoSerializer(serializers.ModelSerializer):
-    image = serializers.ImageField(validators=[validate_file_size, validate_file_type])
-
     class Meta:
         model = Photo
         fields = '__all__'
 
+
 class SignatureSerializer(serializers.ModelSerializer):
+    firmante_nombre = serializers.SerializerMethodField()
+
     class Meta:
         model = Signature
         fields = '__all__'
 
+    def get_firmante_nombre(self, obj):
+        if obj.firmante:
+            return f"{obj.firmante.first_name} {obj.firmante.last_name}".strip() or obj.firmante.username
+        return None
+
+
 class SecondSignatureSerializer(serializers.ModelSerializer):
+    firmante_nombre = serializers.SerializerMethodField()
+
     class Meta:
         model = SecondSignature
         fields = '__all__'
 
+    def get_firmante_nombre(self, obj):
+        if obj.firmante:
+            return f"{obj.firmante.first_name} {obj.firmante.last_name}".strip() or obj.firmante.username
+        return None
+
+
 class ReportSerializer(serializers.ModelSerializer):
-    file_url = serializers.SerializerMethodField()
-    equipment = serializers.SerializerMethodField()
-    generated_by = serializers.SerializerMethodField()
-    report_data = serializers.JSONField()
-    created_at = serializers.DateTimeField(source='generated_at')
-    expires_at = serializers.DateTimeField()
+    generado_por_nombre = serializers.SerializerMethodField()
 
     class Meta:
         model = Report
-        fields = ['id', 'equipment', 'generated_by', 'report_data', 'pdf_file', 'created_at', 'expires_at', 'file_url']
-
-    def get_file_url(self, obj):
-        request = self.context.get('request')
-        if request and obj.pdf_file:
-            # Ensure storage is properly initialized
-            if isinstance(obj.pdf_file.storage, str):
-                from core.storage import MaintenanceReportStorage
-                obj.pdf_file.storage = MaintenanceReportStorage()
-            return request.build_absolute_uri(obj.pdf_file.url)
-        return obj.pdf_file.url if obj.pdf_file else None
-
-    def get_equipment(self, obj):
-        if obj.maintenance and obj.maintenance.equipment:
-            return {
-                'id': obj.maintenance.equipment.id,
-                'code': obj.maintenance.equipment.code,
-                'name': obj.maintenance.equipment.name
-            }
-        return None
-
-    def get_generated_by(self, obj):
-        if obj.generated_by:
-            return {
-                'id': obj.generated_by.id,
-                'username': obj.generated_by.username
-            }
-        return None
-
-class MaintenanceSerializer(serializers.ModelSerializer):
-    photos = PhotoSerializer(many=True, read_only=True)
-    signature = SignatureSerializer(read_only=True)
-    second_signature = SecondSignatureSerializer(read_only=True)
-    report = ReportSerializer(read_only=True)
-
-    class Meta:
-        model = Maintenance
         fields = '__all__'
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if self.context.get('request') and self.context['request'].method in ['POST', 'PUT', 'PATCH']:
-            # For write operations, make photos writable
-            self.fields['photos'] = serializers.ListField(
-                child=serializers.ImageField(validators=[validate_file_size, validate_file_type]),
-                required=False,
-                write_only=True
-            )
-            self.fields['signature'] = serializers.ImageField(
-                required=False,
-                write_only=True,
-                validators=[validate_file_size, validate_file_type]
-            )
-            self.fields['second_signature'] = serializers.ImageField(
-                required=False,
-                write_only=True,
-                validators=[validate_file_size, validate_file_type]
-            )
+    def get_generado_por_nombre(self, obj):
+        if obj.generado_por:
+            return f"{obj.generado_por.first_name} {obj.generado_por.last_name}".strip() or obj.generado_por.username
+        return None
 
-    def create(self, validated_data):
-        # Remove photos from validated_data since it's handled separately
-        validated_data.pop('photos', None)
-        validated_data.pop('signature', None)
-        validated_data.pop('second_signature', None)
 
-        # Parse activities if it's a string
-        if isinstance(validated_data.get('activities'), str):
-            import json
-            validated_data['activities'] = json.loads(validated_data['activities'])
+class GroupSerializer(serializers.ModelSerializer):
+    user_count = serializers.SerializerMethodField()
 
-        photos_data = self.context['request'].FILES.getlist('photos')
-        signature_data = self.context['request'].FILES.get('signature')
-        second_signature_data = self.context['request'].FILES.get('second_signature')
+    class Meta:
+        model = Group
+        fields = ['id', 'name', 'user_count']
 
-        maintenance = Maintenance.objects.create(**validated_data)
+    def get_user_count(self, obj):
+        return obj.user_set.count()
 
-        # Create photos and add to maintenance
-        for photo_data in photos_data:
-            Photo.objects.create(maintenance=maintenance, image=photo_data)
 
-        # Create signature if provided
-        if signature_data:
-            Signature.objects.create(maintenance=maintenance, image=signature_data)
+class UserSerializer(serializers.ModelSerializer):
+    groups = serializers.SerializerMethodField()
 
-        # Create second signature if provided
-        if second_signature_data:
-            SecondSignature.objects.create(maintenance=maintenance, image=second_signature_data)
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 
+                  'is_active', 'is_staff', 'is_superuser', 'groups', 'date_joined']
+        read_only_fields = ['id', 'date_joined']
 
-        return maintenance
+    def get_groups(self, obj):
+        return [group.name for group in obj.groups.all()]
+
+
+class UserCreateSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8)
+    confirm_password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'first_name', 'last_name', 
+                  'password', 'confirm_password', 'is_active', 'is_staff']
 
     def validate(self, data):
-        is_incident = data.get('is_incident', False)
-
-        # Modo Normal: All fields mandatory except photos
-        if not is_incident:
-            required_fields = [
-                'maintenance_type', 'description', 'maintenance_date', 'performed_by',
-                'sede', 'dependencia', 'oficina', 'placa', 'hora_inicio', 'hora_final'
-            ]
-            for field in required_fields:
-                if not data.get(field):
-                    raise serializers.ValidationError(f"{field} is required in Normal mode.")
-
-        # Modo Incidencia: Reduced mandatory fields
-        else:
-            required_fields_incident = ['description']  # Only incident annotations required
-            for field in required_fields_incident:
-                if not data.get(field):
-                    raise serializers.ValidationError(f"{field} is required in Incident mode.")
-
-        # Check if maintenance already exists for this equipment on this date
-        equipment = data.get('equipment')
-        maintenance_date = data.get('maintenance_date')
-        if self.instance is None and Maintenance.objects.filter(equipment=equipment, maintenance_date=maintenance_date).exists():
-            raise serializers.ValidationError("Maintenance already exists for this equipment on this date.")
-
+        if data['password'] != data['confirm_password']:
+            raise serializers.ValidationError("Passwords do not match")
         return data
 
+    def create(self, validated_data):
+        validated_data.pop('confirm_password')
+        password = validated_data.pop('password')
+        user = User(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
+
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['email', 'first_name', 'last_name', 'is_active', 'is_staff']
+
+
 class EquipmentSerializer(serializers.ModelSerializer):
-    maintenances = MaintenanceSerializer(many=True, read_only=True)
+    maintenance_count = serializers.SerializerMethodField()
+    incident_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Equipment
         fields = '__all__'
 
-class ReportCreateSerializer(serializers.Serializer):
-    maintenance_id = serializers.IntegerField()
+    def get_maintenance_count(self, obj):
+        return obj.maintenances.count()
 
-    def validate_maintenance_id(self, value):
-        try:
-            maintenance = Maintenance.objects.get(id=value)
-            # Check if report already exists
-            if hasattr(maintenance, 'report'):
-                raise serializers.ValidationError("Report already exists for this maintenance.")
-            return value
-        except Maintenance.DoesNotExist:
-            raise serializers.ValidationError("Maintenance not found.")
+    def get_incident_count(self, obj):
+        return obj.incidents.count()
+
+
+class MaintenanceSerializer(serializers.ModelSerializer):
+    equipo_placa = serializers.CharField(source='equipo.placa', read_only=True)
+    equipo_tipo = serializers.CharField(source='equipo.tipo', read_only=True)
+    tecnico_nombre = serializers.SerializerMethodField()
+    photos = PhotoSerializer(many=True, read_only=True)
+    signatures = SignatureSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Maintenance
+        fields = '__all__'
+
+    def get_tecnico_nombre(self, obj):
+        if obj.tecnico_responsable:
+            return f"{obj.tecnico_responsable.first_name} {obj.tecnico_responsable.last_name}".strip() or obj.tecnico_responsable.username
+        return None
+
+
+class IncidentSerializer(serializers.ModelSerializer):
+    equipo_placa = serializers.CharField(source='equipo.placa', read_only=True)
+    equipo_tipo = serializers.CharField(source='equipo.tipo', read_only=True)
+    reportado_por_nombre = serializers.SerializerMethodField()
+    asignado_a_nombre = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Incident
+        fields = '__all__'
+
+    def get_reportado_por_nombre(self, obj):
+        if obj.reportado_por:
+            return f"{obj.reportado_por.first_name} {obj.reportado_por.last_name}".strip() or obj.reportado_por.username
+        return None
+
+    def get_asignado_a_nombre(self, obj):
+        if obj.asignado_a:
+            return f"{obj.asignado_a.first_name} {obj.asignado_a.last_name}".strip() or obj.asignado_a.username
+        return None
+
+
+class MaintenanceReportSerializer(serializers.ModelSerializer):
+    maintenance_details = MaintenanceSerializer(source='maintenance', read_only=True)
+    generated_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MaintenanceReport
+        fields = '__all__'
+
+    def get_generated_by_name(self, obj):
+        if obj.generated_by:
+            return f"{obj.generated_by.first_name} {obj.generated_by.last_name}".strip() or obj.generated_by.username
+        return None

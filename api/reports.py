@@ -10,15 +10,385 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch, cm
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Image as RLImage, 
-    Table, TableStyle, PageBreak, KeepTogether, Frame, PageTemplate
+    SimpleDocTemplate, 
+    Table, 
+    TableStyle, 
+    Paragraph, 
+    Spacer, 
+    Image as RLImage,  # Renombrar para evitar conflictos
+    PageBreak,
+    Flowable
 )
-from reportlab.pdfgen import canvas as pdfgen_canvas
-from reportlab.platypus.flowables import Flowable
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
+from reportlab.pdfgen import canvas
+from io import BytesIO
+from datetime import datetime
+import os
 from django.conf import settings
-from .models import Maintenance
+
+# Importar modelos
+from .models import Maintenance, Incident, Equipment
+
+
+class MaintenanceReportPDF:
+    """Generate PDF report for maintenance with parametrized headers"""
+    
+    def __init__(self, maintenance: Maintenance):
+        self.maintenance = maintenance
+        self.buffer = BytesIO()
+        self.width, self.height = A4
+        
+    def _header_footer(self, canvas, doc):
+        """Add header and footer to each page"""
+        canvas.saveState()
+        
+        # Header
+        canvas.setFont('Helvetica-Bold', 8)
+        
+        # Logo (if exists)
+        logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo.png')
+        if os.path.exists(logo_path):
+            canvas.drawImage(logo_path, 30, self.height - 50, width=60, height=40, preserveAspectRatio=True)
+        
+        # Header table
+        canvas.setFont('Helvetica-Bold', 10)
+        canvas.drawString(100, self.height - 30, "ALCALDÍA MUNICIPAL")
+        canvas.setFont('Helvetica', 8)
+        canvas.drawString(100, self.height - 42, "Sistema de Gestión de Mantenimiento")
+        
+        # Document info box (right side)
+        canvas.setFont('Helvetica-Bold', 7)
+        canvas.drawString(self.width - 150, self.height - 25, "Código: GTI-F-015")
+        canvas.drawString(self.width - 150, self.height - 35, "Versión: 01")
+        canvas.drawString(self.width - 150, self.height - 45, f"Fecha: {datetime.now().strftime('%d/%m/%Y')}")
+        
+        # Header line
+        canvas.setStrokeColor(colors.HexColor('#003366'))
+        canvas.setLineWidth(2)
+        canvas.line(30, self.height - 60, self.width - 30, self.height - 60)
+        
+        # Footer
+        canvas.setFont('Helvetica', 7)
+        canvas.drawString(30, 30, f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+        canvas.drawString(self.width - 150, 30, f"Página {doc.page}")
+        
+        # Footer line
+        canvas.setStrokeColor(colors.HexColor('#003366'))
+        canvas.setLineWidth(1)
+        canvas.line(30, 40, self.width - 30, 40)
+        
+        canvas.restoreState()
+
+    def generate(self) -> BytesIO:
+        """Generate the PDF report"""
+        doc = SimpleDocTemplate(
+            self.buffer,
+            pagesize=A4,
+            rightMargin=30,
+            leftMargin=30,
+            topMargin=80,
+            bottomMargin=60,
+        )
+        
+        # Container for elements
+        elements: list[Flowable] = []
+        styles = getSampleStyleSheet()
+        
+        # Custom styles
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=16,
+            textColor=colors.HexColor('#003366'),
+            spaceAfter=20,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold'
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=12,
+            textColor=colors.HexColor('#003366'),
+            spaceAfter=10,
+            spaceBefore=15,
+            fontName='Helvetica-Bold'
+        )
+        
+        normal_style = ParagraphStyle(
+            'CustomNormal',
+            parent=styles['Normal'],
+            fontSize=9,
+            alignment=TA_JUSTIFY
+        )
+        
+        # Title
+        title = Paragraph("REPORTE DE MANTENIMIENTO", title_style)
+        elements.append(title)
+        elements.append(Spacer(1, 0.3*inch))
+        
+        # Equipment Information Section
+        equipment_heading = Paragraph("1. INFORMACIÓN DEL EQUIPO", heading_style)
+        elements.append(equipment_heading)
+        
+        equipment_data = [
+            ['Placa:', self.maintenance.equipo.placa, 'Tipo:', self.maintenance.equipo.tipo],
+            ['Marca:', self.maintenance.equipo.marca, 'Modelo:', self.maintenance.equipo.modelo],
+            ['Serial:', self.maintenance.equipo.serial or 'N/A', 'Estado:', self.maintenance.equipo.estado],
+            ['Dependencia:', self.maintenance.equipo.dependencia, 'Sede:', self.maintenance.equipo.sede or 'N/A'],
+        ]
+        
+        equipment_table = Table(equipment_data, colWidths=[2*cm, 6*cm, 2*cm, 6*cm])
+        equipment_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.white),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#003366')),
+            ('TEXTCOLOR', (2, 0), (2, -1), colors.HexColor('#003366')),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(equipment_table)
+        elements.append(Spacer(1, 0.3*inch))
+        
+        # Maintenance Information Section
+        maintenance_heading = Paragraph("2. INFORMACIÓN DEL MANTENIMIENTO", heading_style)
+        elements.append(maintenance_heading)
+        
+        maintenance_data = [
+            ['Tipo:', self.maintenance.get_tipo_mantenimiento_display(), 'Fecha:', self.maintenance.fecha_mantenimiento.strftime('%d/%m/%Y')],
+            ['Técnico:', self.maintenance.tecnico_responsable.get_full_name() if self.maintenance.tecnico_responsable else 'N/A', 
+             'Próximo Mtto:', self.maintenance.proximo_mantenimiento.strftime('%d/%m/%Y') if self.maintenance.proximo_mantenimiento else 'N/A'],
+        ]
+        
+        if self.maintenance.costo:
+            maintenance_data.append(['Costo:', f"${self.maintenance.costo:,.2f}", '', ''])
+        
+        maintenance_table = Table(maintenance_data, colWidths=[2*cm, 6*cm, 2.5*cm, 5.5*cm])
+        maintenance_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.white),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#003366')),
+            ('TEXTCOLOR', (2, 0), (2, -1), colors.HexColor('#003366')),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(maintenance_table)
+        elements.append(Spacer(1, 0.3*inch))
+        
+        # Work Description Section
+        description_heading = Paragraph("3. DESCRIPCIÓN DEL TRABAJO REALIZADO", heading_style)
+        elements.append(description_heading)
+        
+        description_text = Paragraph(self.maintenance.descripcion_trabajo, normal_style)
+        elements.append(description_text)
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Parts Used Section
+        if self.maintenance.repuestos_utilizados:
+            parts_heading = Paragraph("4. REPUESTOS UTILIZADOS", heading_style)
+            elements.append(parts_heading)
+            parts_text = Paragraph(self.maintenance.repuestos_utilizados, normal_style)
+            elements.append(parts_text)
+            elements.append(Spacer(1, 0.2*inch))
+        
+        # Observations Section
+        if self.maintenance.observaciones:
+            obs_heading = Paragraph("5. OBSERVACIONES", heading_style)
+            elements.append(obs_heading)
+            obs_text = Paragraph(self.maintenance.observaciones, normal_style)
+            elements.append(obs_text)
+            elements.append(Spacer(1, 0.2*inch))
+        
+        # Photos Section
+        photos = self.maintenance.photos.all()
+        if photos:
+            photos_heading = Paragraph("6. EVIDENCIA FOTOGRÁFICA", heading_style)
+            elements.append(photos_heading)
+            
+            photo_data = []
+            photo_row = []
+            for idx, photo in enumerate(photos):
+                if photo.image and os.path.exists(photo.image.path):
+                    try:
+                        img = RLImage(photo.image.path, width=2.5*inch, height=2*inch)
+                        photo_row.append(img)
+                        
+                        if len(photo_row) == 2 or idx == len(photos) - 1:
+                            photo_data.append(photo_row)
+                            photo_row = []
+                    except Exception as e:
+                        print(f"Error loading image: {e}")
+            
+            if photo_data:
+                photo_table = Table(photo_data, colWidths=[3*inch, 3*inch])
+                photo_table.setStyle(TableStyle([
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('TOPPADDING', (0, 0), (-1, -1), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+                ]))
+                elements.append(photo_table)
+                elements.append(Spacer(1, 0.3*inch))
+        
+        # Signatures Section
+        elements.append(Spacer(1, 0.5*inch))
+        signatures_heading = Paragraph("7. FIRMAS", heading_style)
+        elements.append(signatures_heading)
+        
+        signature_data = [
+            ['', ''],
+            ['_' * 40, '_' * 40],
+            ['Técnico Responsable', 'Supervisor'],
+            [self.maintenance.tecnico_responsable.get_full_name() if self.maintenance.tecnico_responsable else '', ''],
+        ]
+        
+        signature_table = Table(signature_data, colWidths=[3.5*inch, 3.5*inch])
+        signature_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('FONTNAME', (0, 2), (-1, 2), 'Helvetica-Bold'),
+            ('TOPPADDING', (0, 0), (-1, 0), 30),
+            ('BOTTOMPADDING', (0, 1), (-1, 1), 5),
+        ]))
+        elements.append(signature_table)
+        
+        # Build PDF
+        doc.build(elements, onFirstPage=self._header_footer, onLaterPages=self._header_footer)
+        
+        self.buffer.seek(0)
+        return self.buffer
+
+
+class IncidentReportPDF:
+    """Generate PDF report for incidents"""
+    
+    def __init__(self, incident: Incident):
+        self.incident = incident
+        self.buffer = BytesIO()
+        self.width, self.height = A4
+    
+    def _header_footer(self, canvas, doc):
+        """Add header and footer"""
+        canvas.saveState()
+        
+        canvas.setFont('Helvetica-Bold', 10)
+        canvas.drawString(100, self.height - 30, "REPORTE DE INCIDENTE")
+        canvas.setFont('Helvetica', 7)
+        canvas.drawString(30, 30, f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+        
+        canvas.restoreState()
+    
+    def generate(self) -> BytesIO:
+        """Generate incident PDF report"""
+        doc = SimpleDocTemplate(self.buffer, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=80, bottomMargin=60)
+        elements: list[Flowable] = []
+        styles = getSampleStyleSheet()
+        
+        # Title
+        title = Paragraph(f"REPORTE DE INCIDENTE #{self.incident.id}", styles['Title'])
+        elements.append(title)
+        elements.append(Spacer(1, 0.3*inch))
+        
+        # Incident data
+        data = [
+            ['Equipo:', self.incident.equipo.placa, 'Tipo:', self.incident.get_tipo_incidente_display()],
+            ['Estado:', self.incident.get_estado_display(), 'Prioridad:', self.incident.get_prioridad_display()],
+            ['Fecha Reporte:', self.incident.fecha_reporte.strftime('%d/%m/%Y %H:%M'), 
+             'Reportado por:', self.incident.reportado_por.get_full_name() if self.incident.reportado_por else 'N/A'],
+        ]
+        
+        table = Table(data, colWidths=[2*cm, 6*cm, 2*cm, 6*cm])
+        table.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(table)
+        elements.append(Spacer(1, 0.3*inch))
+        
+        # Description
+        desc_heading = Paragraph("Descripción:", styles['Heading2'])
+        elements.append(desc_heading)
+        desc = Paragraph(self.incident.descripcion, styles['Normal'])
+        elements.append(desc)
+        
+        if self.incident.solucion:
+            elements.append(Spacer(1, 0.2*inch))
+            sol_heading = Paragraph("Solución:", styles['Heading2'])
+            elements.append(sol_heading)
+            sol = Paragraph(self.incident.solucion, styles['Normal'])
+            elements.append(sol)
+        
+        doc.build(elements, onFirstPage=self._header_footer, onLaterPages=self._header_footer)
+        self.buffer.seek(0)
+        return self.buffer
+
+
+class BatchMaintenanceReportPDF:
+    """Generate batch PDF reports for multiple maintenances"""
+    
+    def __init__(self, maintenances: list[Maintenance]):
+        self.maintenances = maintenances
+        self.buffer = BytesIO()
+    
+    def generate(self) -> BytesIO:
+        """Generate batch PDF report"""
+        doc = SimpleDocTemplate(self.buffer, pagesize=A4)
+        elements: list[Flowable] = []
+        styles = getSampleStyleSheet()
+        
+        # Cover page
+        cover_title = Paragraph(
+            f"REPORTES DE MANTENIMIENTO<br/>{len(self.maintenances)} Registros",
+            styles['Title']
+        )
+        elements.append(cover_title)
+        elements.append(Spacer(1, 0.5*inch))
+        
+        cover_date = Paragraph(
+            f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+            styles['Normal']
+        )
+        elements.append(cover_date)
+        elements.append(PageBreak())
+        
+        # Add each maintenance report
+        for idx, maintenance in enumerate(self.maintenances):
+            report_gen = MaintenanceReportPDF(maintenance)
+            # Note: This is simplified - in production you'd merge the PDFs properly
+            
+            heading = Paragraph(
+                f"Reporte {idx + 1}: {maintenance.equipo.placa}",
+                styles['Heading1']
+            )
+            elements.append(heading)
+            elements.append(Spacer(1, 0.2*inch))
+            
+            if idx < len(self.maintenances) - 1:
+                elements.append(PageBreak())
+        
+        doc.build(elements)
+        self.buffer.seek(0)
+        return self.buffer
 
 
 class CheckboxFlowable(Flowable):
@@ -59,873 +429,3 @@ class PDFHeaderFooter:
     
     def draw_header(self, canvas, doc):
         """Draw header on each page."""
-        canvas.saveState()
-        
-        # Draw logo if provided
-        logo_path = self.config.get('logo_path')
-        if logo_path:
-            try:
-                canvas.drawImage(logo_path, 1*cm, letter[1] - 2*cm, width=2*cm, height=2*cm, preserveAspectRatio=True)
-            except:
-                pass  # If logo fails, continue without it
-        
-        # Main title
-        canvas.setFont('Helvetica-Bold', 11)
-        canvas.drawCentredString(letter[0]/2, letter[1] - 1.5*cm, 
-                                self.config.get('organization', 'ALCALDÍA DE PASTO'))
-        
-        canvas.setFont('Helvetica-Bold', 10)
-        canvas.drawCentredString(letter[0]/2, letter[1] - 2*cm, 
-                                self.config.get('department', 'GESTIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN'))
-        
-        # Code, version, and validity
-        canvas.setFont('Helvetica', 8)
-        info_y = letter[1] - 2.5*cm
-        info_text = f"Código: {self.config.get('codigo', 'N/A')}  |  " \
-                   f"Versión: {self.config.get('version', 'N/A')}  |  " \
-                   f"Vigencia: {self.config.get('vigencia', 'N/A')}"
-        canvas.drawCentredString(letter[0]/2, info_y, info_text)
-        
-        # Horizontal line
-        canvas.setStrokeColor(colors.grey)
-        canvas.line(1*cm, letter[1] - 2.8*cm, letter[0] - 1*cm, letter[1] - 2.8*cm)
-        
-        canvas.restoreState()
-    
-    def draw_footer(self, canvas, doc):
-        """Draw footer on each page."""
-        canvas.saveState()
-        canvas.setFont('Helvetica', 8)
-        canvas.drawString(1*cm, 1*cm, f"Página {doc.page}")
-        canvas.drawRightString(letter[0] - 1*cm, 1*cm, 
-                              f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
-        canvas.restoreState()
-
-
-class ReportGenerator(ABC):
-    """Abstract base class for report generators."""
-
-    @abstractmethod
-    def generate(self, maintenance: Maintenance) -> BytesIO:
-        """Generate a report for the given maintenance."""
-        pass
-
-
-class ReportLabGenerator(ReportGenerator):
-    """PDF generator using ReportLab with full format support."""
-
-    def __init__(self, header_config=None):
-        """Initialize generator with custom header configuration."""
-        self.header_config = header_config or {}
-        self.styles = self._create_custom_styles()
-    
-    def _create_custom_styles(self):
-        """Create custom paragraph styles for the report."""
-        styles = getSampleStyleSheet()
-        
-        # Custom styles
-        styles.add(ParagraphStyle(
-            name='CustomTitle',
-            parent=styles['Heading1'],
-            fontSize=14,
-            textColor=colors.HexColor('#1a5490'),
-            spaceAfter=12,
-            alignment=TA_CENTER,
-            fontName='Helvetica-Bold'
-        ))
-        
-        styles.add(ParagraphStyle(
-            name='SectionHeader',
-            parent=styles['Heading2'],
-            fontSize=11,
-            textColor=colors.HexColor('#2c5aa0'),
-            spaceAfter=10,
-            spaceBefore=10,
-            fontName='Helvetica-Bold',
-            borderWidth=1,
-            borderColor=colors.HexColor('#2c5aa0'),
-            borderPadding=5,
-            backColor=colors.HexColor('#e8f0f8')
-        ))
-        
-        styles.add(ParagraphStyle(
-            name='FieldLabel',
-            parent=styles['Normal'],
-            fontSize=9,
-            fontName='Helvetica-Bold'
-        ))
-        
-        styles.add(ParagraphStyle(
-            name='FieldValue',
-            parent=styles['Normal'],
-            fontSize=9,
-            fontName='Helvetica'
-        ))
-        
-        return styles
-
-    def generate(self, maintenance: Maintenance) -> BytesIO:
-        """Generate PDF based on maintenance type."""
-        if maintenance.maintenance_type == 'computer':
-            return self._generate_computer_report(maintenance)
-        elif maintenance.maintenance_type == 'printer_scanner':
-            return self._generate_printer_scanner_report(maintenance)
-        else:
-            return self._generate_generic_report(maintenance)
-    
-    def _generate_computer_report(self, maintenance: Maintenance) -> BytesIO:
-        """Generate Formato 1: Rutina Mantenimiento Preventivo de Equipos de Cómputo."""
-        buffer = BytesIO()
-        
-        # Configure header
-        header_config = {
-            'organization': 'ALCALDÍA DE PASTO',
-            'department': 'GESTIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN',
-            'codigo': 'GTI-F-015',
-            'version': '03',
-            'vigencia': '18-Jul-19',
-            **self.header_config
-        }
-        
-        # Create document with custom header/footer
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=letter,
-            topMargin=3.5*cm,
-            bottomMargin=2*cm,
-            leftMargin=2*cm,
-            rightMargin=2*cm
-        )
-        
-        story = []
-        
-        # Title
-        title = Paragraph(
-            "🖥 FORMATO 1: RUTINA MANTENIMIENTO PREVENTIVO DE EQUIPOS DE CÓMPUTO",
-            self.styles['CustomTitle']
-        )
-        story.append(title)
-        story.append(Spacer(1, 0.3*cm))
-        
-        # Basic Information Section
-        basic_info_data = [
-            ['Sede:', maintenance.sede or '_' * 40],
-            ['Dependencia:', maintenance.dependencia or '_' * 40],
-            ['Oficina:', maintenance.oficina or '_' * 40],
-            ['Placa Torre (si no tiene, informar identificación):', maintenance.placa or maintenance.equipment.code],
-        ]
-        
-        date_time_data = [
-            ['Fecha Mantenimiento:', f"Día {maintenance.maintenance_date.day:02d} / Mes {maintenance.maintenance_date.month:02d} / Año {maintenance.maintenance_date.year}"],
-            ['Hora Inicio:', maintenance.hora_inicio.strftime('%H:%M') if maintenance.hora_inicio else '_______',
-             'Hora Final:', maintenance.hora_final.strftime('%H:%M') if maintenance.hora_final else '_______']
-        ]
-        
-        for row in basic_info_data:
-            table = Table([row], colWidths=[5*cm, 12*cm])
-            table.setStyle(TableStyle([
-                ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
-                ('FONTNAME', (1, 0), (1, 0), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ]))
-            story.append(table)
-        
-        table = Table([date_time_data[0]], colWidths=[4*cm, 13*cm])
-        table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ]))
-        story.append(table)
-        
-        time_table = Table([date_time_data[1]], colWidths=[2.5*cm, 3*cm, 2.5*cm, 3*cm])
-        time_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
-            ('FONTNAME', (2, 0), (2, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ]))
-        story.append(time_table)
-        story.append(Spacer(1, 0.5*cm))
-        
-        # Hardware Section
-        story.append(Paragraph("🔧 RUTINA DE HARDWARE", self.styles['SectionHeader']))
-        story.append(Spacer(1, 0.2*cm))
-        
-        hardware_activities = [
-            'Limpieza interna de la torre',
-            'Limpieza del teclado',
-            'Limpieza del monitor',
-            'Verificación de cables de poder y de datos',
-            'Ajuste de tarjetas (Memoria - Video - Red)',
-            'Lubricación del ventilador de la torre',
-            'Lubricación del ventilador de la fuente',
-            'Lubricación del ventilador del procesador',
-        ]
-        
-        hw_table_data = [['Actividad', 'SI', 'N.A.']]
-        activities_data = maintenance.activities or {}
-        
-        for activity in hardware_activities:
-            activity_key = activity.lower().replace(' ', '_')
-            status = activities_data.get(f'hardware_{activity_key}', '')
-            hw_table_data.append([
-                activity,
-                '☑' if status == 'SI' else '☐',
-                '☑' if status == 'N.A.' else '☐'
-            ])
-        
-        hw_table = Table(hw_table_data, colWidths=[12*cm, 2*cm, 2*cm])
-        hw_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#d0e0f0')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 6),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ]))
-        story.append(hw_table)
-        story.append(Spacer(1, 0.5*cm))
-        
-        # Software Section
-        story.append(Paragraph("💽 RUTINA DE SOFTWARE", self.styles['SectionHeader']))
-        story.append(Spacer(1, 0.2*cm))
-        
-        software_activities = [
-            'Crear partición de datos',
-            'Mover información a partición de datos',
-            'Reinstalar sistema operativo',
-            'Instalar antivirus',
-            'Análisis en busca de software malicioso',
-            'Diagnosticar funcionamiento aplicaciones instaladas',
-            'Suspender actualizaciones automáticas S.O.',
-            'Instalar programas esenciales (ofimática, grabador de discos)',
-            'Configurar usuarios administrador local',
-            'Modificar contraseña de administrador',
-            'Configurar nombre equipo',
-            'El equipo tiene estabilizador',
-            'El escritorio está limpio',
-            'Desactivar aplicaciones al inicio de Windows',
-            'Configurar página de inicio navegador',
-            'Configurar fondo de pantalla institucional',
-            'Configurar protector de pantalla institucional',
-            'Verificar funcionamiento general',
-            'Inventario de equipo',
-            'Limpieza de registros y eliminación de archivos temporales',
-            'Creación Punto de Restauración',
-            'Verificar espacio en disco',
-            'Desactivar software no autorizado',
-            'Analizar disco duro',
-            'El Usuario de Windows tiene contraseña',
-        ]
-        
-        sw_table_data = [['Actividad', 'SI', 'N.A./NO']]
-        
-        for activity in software_activities:
-            activity_key = activity.lower().replace(' ', '_')
-            status = activities_data.get(f'software_{activity_key}', '')
-            sw_table_data.append([
-                activity,
-                '☑' if status == 'SI' else '☐',
-                '☑' if status in ['N.A.', 'NO'] else '☐'
-            ])
-        
-        sw_table = Table(sw_table_data, colWidths=[12*cm, 2*cm, 2*cm])
-        sw_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#d0e0f0')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 6),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ]))
-        story.append(sw_table)
-        story.append(Spacer(1, 0.5*cm))
-        
-        # Observations Section
-        story.append(Paragraph("📝 OBSERVACIONES GENERALES", self.styles['SectionHeader']))
-        obs_gen = Paragraph(maintenance.observaciones_generales or '_' * 80, self.styles['Normal'])
-        story.append(obs_gen)
-        story.append(Spacer(1, 0.3*cm))
-        
-        story.append(Paragraph("🔒 OBSERVACIONES SEGURIDAD DE LA INFORMACIÓN", self.styles['SectionHeader']))
-        obs_seg = Paragraph(maintenance.observaciones_seguridad or '_' * 80, self.styles['Normal'])
-        story.append(obs_seg)
-        story.append(Spacer(1, 0.5*cm))
-        
-        # Signatures Section
-        sig_data = [
-            ['Responsable de Mantenimiento', 'Usuario del Equipo'],
-            ['Firma: ___________________', 'Firma: ___________________'],
-            [f'Nombre: {maintenance.performed_by}', 'Nombre: ___________________'],
-            ['Cargo: ___________________', 'Cédula: ___________________'],
-        ]
-        
-        sig_table = Table(sig_data, colWidths=[8*cm, 8*cm])
-        sig_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 10),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ]))
-        story.append(sig_table)
-        
-        # Add signature images if available
-        if hasattr(maintenance, 'signature') and maintenance.signature:
-            story.append(Spacer(1, 0.2*cm))
-            try:
-                sig_img = RLImage(maintenance.signature.image.path, width=3*cm, height=1.5*cm)
-                story.append(sig_img)
-            except:
-                pass
-        
-        if hasattr(maintenance, 'second_signature') and maintenance.second_signature:
-            story.append(Spacer(1, 0.2*cm))
-            try:
-                sig2_img = RLImage(maintenance.second_signature.image.path, width=3*cm, height=1.5*cm)
-                story.append(sig2_img)
-            except:
-                pass
-        
-        story.append(Spacer(1, 0.5*cm))
-        
-        # Service Rating
-        rating_options = ['Excelente', 'Bueno', 'Regular', 'Malo']
-        rating_row = ['Cómo califica el servicio:']
-        for option in rating_options:
-            checked = '☑' if maintenance.calificacion_servicio == option.lower() else '☐'
-            rating_row.append(f'{checked} {option}')
-        
-        rating_table = Table([rating_row], colWidths=[5*cm, 2.5*cm, 2.5*cm, 2.5*cm, 2.5*cm])
-        rating_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ]))
-        story.append(rating_table)
-        story.append(Spacer(1, 0.3*cm))
-        
-        story.append(Paragraph("<b>Observaciones del usuario:</b>", self.styles['Normal']))
-        user_obs = Paragraph(maintenance.observaciones_usuario or '_' * 80, self.styles['Normal'])
-        story.append(user_obs)
-        
-        # Add photos section if available
-        if maintenance.photos.exists():
-            story.append(PageBreak())
-            story.append(Paragraph("📷 FOTOGRAFÍAS DEL MANTENIMIENTO", self.styles['SectionHeader']))
-            story.append(Spacer(1, 0.3*cm))
-            
-            for idx, photo in enumerate(maintenance.photos.all(), 1):
-                try:
-                    img = RLImage(photo.image.path, width=8*cm, height=6*cm)
-                    story.append(Paragraph(f"Foto {idx}:", self.styles['FieldLabel']))
-                    story.append(img)
-                    story.append(Spacer(1, 0.3*cm))
-                except Exception as e:
-                    story.append(Paragraph(f"Error cargando foto {idx}: {str(e)}", self.styles['Normal']))
-        
-        # Build PDF with custom header/footer
-        header_footer = PDFHeaderFooter(header_config)
-        doc.build(story, onFirstPage=header_footer.draw_header, onLaterPages=header_footer.draw_header)
-        
-        buffer.seek(0)
-        return buffer
-
-
-    def _generate_printer_scanner_report(self, maintenance: Maintenance) -> BytesIO:
-        """Generate Formato 2: Rutina de Mantenimiento Preventivo para Impresoras y Escáner."""
-        buffer = BytesIO()
-        
-        # Configure header
-        header_config = {
-            'organization': 'ALCALDÍA DE PASTO',
-            'department': 'GESTIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN',
-            'codigo': 'GTI-F-016',
-            'version': '02',
-            'vigencia': '18-Jul-19',
-            **self.header_config
-        }
-        
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=letter,
-            topMargin=3.5*cm,
-            bottomMargin=2*cm,
-            leftMargin=2*cm,
-            rightMargin=2*cm
-        )
-        
-        story = []
-        
-        # Title
-        title = Paragraph(
-            "🖨 FORMATO 2: RUTINA DE MANTENIMIENTO PREVENTIVO PARA IMPRESORAS Y ESCÁNER",
-            self.styles['CustomTitle']
-        )
-        story.append(title)
-        story.append(Spacer(1, 0.3*cm))
-        
-        # Basic Information
-        basic_info_data = [
-            ['Sede:', maintenance.sede or '_' * 40],
-            ['Dependencia:', maintenance.dependencia or '_' * 40],
-            ['Oficina:', maintenance.oficina or '_' * 40],
-            ['Placa:', maintenance.placa or maintenance.equipment.code],
-            ['Fecha Mantenimiento:', maintenance.maintenance_date.strftime('%d/%m/%Y')],
-        ]
-        
-        time_data = [
-            ['Hora Inicio:', maintenance.hora_inicio.strftime('%H:%M') if maintenance.hora_inicio else '_______',
-             'Hora Final:', maintenance.hora_final.strftime('%H:%M') if maintenance.hora_final else '_______']
-        ]
-        
-        activities_data = maintenance.activities or {}
-        brand_model = [
-            ['Marca y Modelo Impresora:', activities_data.get('marca_modelo_impresora', '_' * 40)],
-            ['Marca y Modelo Escáner:', activities_data.get('marca_modelo_escaner', '_' * 40)],
-        ]
-        
-        for row in basic_info_data:
-            table = Table([row], colWidths=[5*cm, 12*cm])
-            table.setStyle(TableStyle([
-                ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ]))
-            story.append(table)
-        
-        time_table = Table([time_data[0]], colWidths=[2.5*cm, 3*cm, 2.5*cm, 3*cm])
-        time_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
-            ('FONTNAME', (2, 0), (2, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ]))
-        story.append(time_table)
-        
-        for row in brand_model:
-            table = Table([row], colWidths=[5*cm, 12*cm])
-            table.setStyle(TableStyle([
-                ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ]))
-            story.append(table)
-        
-        story.append(Spacer(1, 0.5*cm))
-        
-        # Scanner Section
-        story.append(Paragraph("📠 RUTINA DE ESCÁNER", self.styles['SectionHeader']))
-        story.append(Spacer(1, 0.2*cm))
-        
-        scanner_activities = [
-            'Limpieza general',
-            'Alineación de papel',
-            'Configuración del equipo',
-            'Pruebas de funcionamiento',
-        ]
-        
-        scanner_table_data = [['Actividad', 'SI', 'N.A.']]
-        
-        for activity in scanner_activities:
-            activity_key = activity.lower().replace(' ', '_')
-            status = activities_data.get(f'scanner_{activity_key}', '')
-            scanner_table_data.append([
-                activity,
-                '☑' if status == 'SI' else '☐',
-                '☑' if status == 'N.A.' else '☐'
-            ])
-        
-        scanner_table = Table(scanner_table_data, colWidths=[12*cm, 2*cm, 2*cm])
-        scanner_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#d0e0f0')),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ]))
-        story.append(scanner_table)
-        story.append(Spacer(1, 0.5*cm))
-        
-        # Printer Section
-        story.append(Paragraph("🖨 RUTINA DE IMPRESORAS", self.styles['SectionHeader']))
-        story.append(Spacer(1, 0.2*cm))
-        
-        printer_activities = [
-            'Limpieza de carcaza',
-            'Limpieza tóner',
-            'Limpieza tarjeta lógica',
-            'Limpieza de sensores',
-            'Limpieza de rodillo',
-            'Limpieza de correas dentadas o guías',
-            'Limpieza de ventiladores',
-            'Limpieza de cabezal impresora matriz de punto e inyección tinta',
-            'Limpieza de engranaje',
-            'Limpieza de fusor',
-            'Limpieza tarjeta de poder',
-            'Alineación de rodillos alimentación de papel',
-            'Configuración del equipo',
-            'Pruebas de funcionamiento',
-        ]
-        
-        printer_table_data = [['Actividad', 'SI', 'N.A.']]
-        
-        for activity in printer_activities:
-            activity_key = activity.lower().replace(' ', '_')
-            status = activities_data.get(f'printer_{activity_key}', '')
-            printer_table_data.append([
-                activity,
-                '☑' if status == 'SI' else '☐',
-                '☑' if status == 'N.A.' else '☐'
-            ])
-        
-        printer_table = Table(printer_table_data, colWidths=[12*cm, 2*cm, 2*cm])
-        printer_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#d0e0f0')),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ]))
-        story.append(printer_table)
-        story.append(Spacer(1, 0.5*cm))
-        
-        # Diagnosis and Observations
-        story.append(Paragraph("🔍 DIAGNÓSTICO", self.styles['SectionHeader']))
-        diagnosis = Paragraph(maintenance.description or '_' * 80, self.styles['Normal'])
-        story.append(diagnosis)
-        story.append(Spacer(1, 0.3*cm))
-        
-        story.append(Paragraph("🗒 OBSERVACIONES ADICIONALES", self.styles['SectionHeader']))
-        obs = Paragraph(maintenance.observaciones_generales or '_' * 80, self.styles['Normal'])
-        story.append(obs)
-        story.append(Spacer(1, 0.5*cm))
-        
-        # Signatures
-        sig_data = [
-            ['Responsable de Mantenimiento', 'Responsable del Equipo'],
-            ['Firma: ___________________', 'Firma: ___________________'],
-            [f'Nombre: {maintenance.performed_by}', 'Nombre: ___________________'],
-            ['Cargo: ___________________', 'Cargo: ___________________'],
-        ]
-        
-        sig_table = Table(sig_data, colWidths=[8*cm, 8*cm])
-        sig_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 10),
-        ]))
-        story.append(sig_table)
-        
-        # Add signature images if available
-        if hasattr(maintenance, 'signature') and maintenance.signature:
-            story.append(Spacer(1, 0.2*cm))
-            try:
-                sig_img = RLImage(maintenance.signature.image.path, width=3*cm, height=1.5*cm)
-                story.append(sig_img)
-            except:
-                pass
-        
-        # Add photos section if available
-        if maintenance.photos.exists():
-            story.append(PageBreak())
-            story.append(Paragraph("📷 FOTOGRAFÍAS DEL MANTENIMIENTO", self.styles['SectionHeader']))
-            story.append(Spacer(1, 0.3*cm))
-            
-            for idx, photo in enumerate(maintenance.photos.all(), 1):
-                try:
-                    img = RLImage(photo.image.path, width=8*cm, height=6*cm)
-                    story.append(Paragraph(f"Foto {idx}:", self.styles['FieldLabel']))
-                    story.append(img)
-                    story.append(Spacer(1, 0.3*cm))
-                except Exception as e:
-                    story.append(Paragraph(f"Error cargando foto {idx}: {str(e)}", self.styles['Normal']))
-        
-        # Build PDF
-        header_footer = PDFHeaderFooter(header_config)
-        doc.build(story, onFirstPage=header_footer.draw_header, onLaterPages=header_footer.draw_header)
-        
-        buffer.seek(0)
-        return buffer
-    
-    def _generate_generic_report(self, maintenance: Maintenance) -> BytesIO:
-        """Generate a generic maintenance report."""
-        buffer = BytesIO()
-        
-        header_config = {
-            'organization': 'ALCALDÍA DE PASTO',
-            'department': 'GESTIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN',
-            'codigo': 'GTI-F-000',
-            'version': '01',
-            'vigencia': datetime.now().strftime('%d-%b-%y'),
-            **self.header_config
-        }
-        
-        doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=3.5*cm, bottomMargin=2*cm)
-        story = []
-        
-        title = Paragraph(f"Reporte de Mantenimiento - {maintenance.equipment.code}", self.styles['CustomTitle'])
-        story.append(title)
-        story.append(Spacer(1, 0.5*cm))
-        
-        # Basic info
-        info_data = [
-            ['Equipo:', maintenance.equipment.name],
-            ['Código:', maintenance.equipment.code],
-            ['Ubicación:', maintenance.equipment.location or 'N/A'],
-            ['Fecha:', maintenance.maintenance_date.strftime('%d/%m/%Y')],
-            ['Realizado por:', maintenance.performed_by],
-            ['Descripción:', maintenance.description],
-        ]
-        
-        for row in info_data:
-            table = Table([row], colWidths=[5*cm, 12*cm])
-            table.setStyle(TableStyle([
-                ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ]))
-            story.append(table)
-        
-        # Build PDF
-        header_footer = PDFHeaderFooter(header_config)
-        doc.build(story, onFirstPage=header_footer.draw_header, onLaterPages=header_footer.draw_header)
-        
-        buffer.seek(0)
-        return buffer
-
-
-class WeasyPrintGenerator(ReportGenerator):
-    """PDF generator using WeasyPrint - deprecated, use ReportLabGenerator instead."""
-
-    def generate(self, maintenance: Maintenance) -> BytesIO:
-        # Fallback to ReportLab
-        fallback = ReportLabGenerator()
-        return fallback.generate(maintenance)
-        
-        # html_content = f"""
-        # <html>
-        # <head>
-        #     <style>
-        #         body {{ font-family: Arial, sans-serif; margin: 40px; }}
-        #         .header {{ background-color: #f0f0f0; padding: 20px; border-radius: 5px; }}
-        #         .photo {{ margin: 10px 0; max-width: 300px; }}
-        #         .signature {{ margin: 20px 0; max-width: 200px; }}
-        #     </style>
-        # </head>
-        # <body>
-        #     <div class="header">
-        #         <h1>Maintenance Report - {maintenance.equipment.code}</h1>
-        #         <p><strong>Equipment:</strong> {maintenance.equipment.name}</p>
-        #         <p><strong>Location:</strong> {maintenance.equipment.location or 'N/A'}</p>
-        #         <p><strong>Date:</strong> {maintenance.maintenance_date}</p>
-        #         <p><strong>Performed by:</strong> {maintenance.performed_by}</p>
-        #         <p><strong>Description:</strong> {maintenance.description}</p>
-        #     </div>
-
-        #     <h2>Photos</h2>
-        # """
-
-        # # Add photos
-        # if maintenance.photos.exists():
-        #     for photo in maintenance.photos.all():
-        #         try:
-        #             photo_url = settings.MEDIA_URL + str(photo.image)
-        #             html_content += f'<img src="{photo_url}" class="photo" alt="Maintenance photo"><br/>'
-        #         except Exception as e:
-        #             html_content += f'<p>Error loading photo: {str(e)}</p>'
-
-        # # Add signature
-        # if hasattr(maintenance, 'signature') and maintenance.signature:
-        #     try:
-        #         sig_url = settings.MEDIA_URL + str(maintenance.signature.image)
-        #         html_content += f'<h2>Signature</h2><img src="{sig_url}" class="signature" alt="Signature">'
-        #     except Exception as e:
-        #         html_content += f'<p>Error loading signature: {str(e)}</p>'
-
-        # html_content += """
-        # </body>
-        # </html>
-        # """
-
-        # # Generate PDF
-        # html_doc = HTML(string=html_content, base_url=settings.MEDIA_ROOT)
-        # buffer = BytesIO()
-        # html_doc.write_pdf(buffer)
-        # buffer.seek(0)
-        # return buffer
-
-
-# Factory function to get the appropriate generator
-def get_report_generator(generator_type: str = 'reportlab', header_config: dict = None) -> ReportGenerator:
-    """
-    Factory function to get report generator by type.
-    
-    Args:
-        generator_type: Type of generator ('reportlab' recommended)
-        header_config: Optional dictionary with header configuration:
-            - organization: Organization name (default: 'ALCALDÍA DE PASTO')
-            - department: Department name (default: 'GESTIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN')
-            - codigo: Form code (e.g., 'GTI-F-015')
-            - version: Version number (e.g., '03')
-            - vigencia: Validity date (e.g., '18-Jul-19')
-            - logo_path: Path to organization logo
-    
-    Returns:
-        ReportGenerator instance
-        
-    Example:
-        >>> config = {
-        ...     'codigo': 'GTI-F-015',
-        ...     'version': '03',
-        ...     'vigencia': '18-Jul-19'
-        ... }
-        >>> generator = get_report_generator('reportlab', config)
-        >>> pdf_buffer = generator.generate(maintenance_instance)
-    """
-    if generator_type.lower() == 'reportlab':
-        return ReportLabGenerator(header_config=header_config)
-    elif generator_type.lower() == 'weasyprint':
-        return ReportLabGenerator(header_config=header_config)  # Fallback to ReportLab
-    else:
-        raise ValueError(f"Unknown generator type: {generator_type}")
-
-
-# Documentation and implementation notes
-IMPLEMENTATION_NOTES = """
-PDF Generation Implementation - ReportLab
-
-This module implements PDF generation for maintenance reports using ReportLab library.
-
-FEATURES:
----------
-1. Parameterizable Headers:
-   - Organization name
-   - Department name
-   - Form code (e.g., GTI-F-015)
-   - Version and validity date
-   - Optional logo support
-
-2. Two Main Formats:
-   - Formato 1: Computer Equipment Maintenance (GTI-F-015)
-   - Formato 2: Printer and Scanner Maintenance (GTI-F-016)
-
-3. Dynamic Content:
-   - Checklist tables with SI/N.A./NO options
-   - Signature fields with image support
-   - Photo attachments
-   - Service rating
-   - Custom observations
-
-4. Professional Styling:
-   - Custom color schemes
-   - Proper spacing and alignment
-   - Grid-based layouts
-   - Unicode emoji support
-
-USAGE:
-------
-1. Basic usage:
-   ```python
-   from api.reports import get_report_generator
-   
-   generator = get_report_generator('reportlab')
-   pdf_buffer = generator.generate(maintenance)
-   ```
-
-2. With custom header:
-   ```python
-   header_config = {
-       'codigo': 'GTI-F-015',
-       'version': '04',
-       'vigencia': '15-Nov-25',
-       'logo_path': '/path/to/logo.png'
-   }
-   generator = get_report_generator('reportlab', header_config)
-   pdf_buffer = generator.generate(maintenance)
-   ```
-
-3. Saving to file:
-   ```python
-   with open('report.pdf', 'wb') as f:
-       f.write(pdf_buffer.getvalue())
-   ```
-
-MAINTENANCE MODEL REQUIREMENTS:
--------------------------------
-The Maintenance model should have these fields for optimal PDF generation:
-- maintenance_type: 'computer' or 'printer_scanner'
-- sede, dependencia, oficina, placa
-- maintenance_date, hora_inicio, hora_final
-- performed_by
-- activities: JSONField with activity statuses
-- observaciones_generales, observaciones_seguridad
-- calificacion_servicio, observaciones_usuario
-- Relationships: photos, signature, second_signature
-
-ACTIVITIES JSON FORMAT:
------------------------
-For computer maintenance:
-{
-    "hardware_limpieza_interna_de_la_torre": "SI",
-    "hardware_limpieza_del_teclado": "N.A.",
-    "software_crear_partición_de_datos": "SI",
-    ...
-}
-
-For printer/scanner maintenance:
-{
-    "scanner_limpieza_general": "SI",
-    "printer_limpieza_de_carcaza": "SI",
-    "marca_modelo_impresora": "HP LaserJet Pro M404n",
-    "marca_modelo_escaner": "Epson DS-530",
-    ...
-}
-
-LIBRARY COMPARISON:
--------------------
-ReportLab (Current Implementation):
-✓ Pure Python, no external dependencies
-✓ Excellent performance and low memory usage
-✓ Precise layout control
-✓ Good for structured forms and tables
-✓ Extensive documentation
-✓ Active maintenance
-- Steeper learning curve for complex layouts
-
-xhtml2pdf (Previously used):
-- HTML/CSS to PDF conversion
-- Limited CSS support
-- Performance issues with large files
-- Deprecated in favor of ReportLab
-
-WeasyPrint:
-+ Better HTML/CSS support
-- Requires external dependencies (GTK, Cairo)
-- Installation challenges on Windows
-- Not suitable for this project
-
-RECOMMENDATION: ReportLab is the best choice for this project due to:
-- No external dependencies
-- Better control over table layouts
-- Excellent performance
-- Easy to maintain
-"""
