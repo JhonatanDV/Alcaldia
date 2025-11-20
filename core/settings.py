@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-agm#5w!o1o0#(htlsunp!6@iiql47*ao!p!be%eu@wvcl%kl01
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1', '192.168.20.149']
+ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1', '192.168.20.149', '10.170.1.103']
 
 
 # Application definition
@@ -84,10 +84,25 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'maintenance_db',
+        'USER': 'root',
+        'PASSWORD': '',
+        'HOST': 'localhost',
+        'PORT': '3306',
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
     }
 }
+
+# Fallback to SQLite for development if MySQL is not available
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
 
 
 # Password validation
@@ -191,6 +206,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://192.168.20.149:3000",
+    "http://10.170.1.103:3000",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
