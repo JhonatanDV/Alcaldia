@@ -7,7 +7,7 @@ class IsAdminOrTechnician(permissions.BasePermission):
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
-        return request.user.groups.filter(name__in=['Admin', 'Technician']).exists()
+        return request.user.groups.filter(name__in=['Admin', 'Technician', 'Técnico']).exists()
 
 class IsAdmin(permissions.BasePermission):
     """
@@ -25,7 +25,7 @@ class IsTechnician(permissions.BasePermission):
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
-        return request.user.groups.filter(name='Technician').exists()
+        return request.user.groups.filter(name__in=['Technician', 'Técnico']).exists()
 
 class IsOwnerOrAdmin(permissions.BasePermission):
     """

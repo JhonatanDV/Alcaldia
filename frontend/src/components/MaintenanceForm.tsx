@@ -7,12 +7,18 @@ import SignaturePad from "react-signature-canvas";
 interface MaintenanceFormProps {
   token: string;
   equipmentId: number;
+  equipmentCode?: string;
+  equipmentName?: string;
+  equipmentLocation?: string;
   onMaintenanceCreated: () => void;
 }
 
 export default function MaintenanceForm({
   token,
   equipmentId,
+  equipmentCode = "",
+  equipmentName = "",
+  equipmentLocation = "",
   onMaintenanceCreated,
 }: MaintenanceFormProps) {
   const [formData, setFormData] = useState({
@@ -20,10 +26,10 @@ export default function MaintenanceForm({
     description: "",
     maintenance_date: "",
     performed_by: "",
-    sede: "",
+    sede: equipmentLocation,
     dependencia: "",
     oficina: "",
-    placa: "",
+    placa: equipmentCode,
     hora_inicio: "",
     hora_final: "",
     activities: {} as Record<string, boolean | null>,
@@ -182,12 +188,40 @@ export default function MaintenanceForm({
       sigPadRef.current?.clear();
       secondSigPadRef.current?.clear();
 
-      // No redirigir al login, solo refrescar la lista de equipos
-      // onMaintenanceCreated(); // Comentado para evitar recarga completa
-      // En su lugar, emitir un evento o usar un estado global para actualizar la lista
-      window.dispatchEvent(new CustomEvent('maintenanceCreated'));
+      // Llamar al callback para notificar éxito
+      onMaintenanceCreated();
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Error al crear mantenimiento");
+      console.error('Error completo:', err);
+      console.error('Respuesta del servidor:', err.response?.data);
+      
+      // Construir mensaje de error detallado
+      let errorMessage = "Error al crear mantenimiento";
+      
+      if (err.response?.data) {
+        const errorData = err.response.data;
+        
+        // Si hay errores de validación por campo
+        if (typeof errorData === 'object' && !errorData.detail) {
+          const fieldErrors = Object.entries(errorData)
+            .map(([field, errors]: [string, any]) => {
+              if (Array.isArray(errors)) {
+                return `${field}: ${errors.join(', ')}`;
+              }
+              return `${field}: ${errors}`;
+            })
+            .join('\n');
+          errorMessage = `Errores de validación:\n${fieldErrors}`;
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        }
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+      alert(errorMessage); // Mostrar alerta para debugging
     } finally {
       setLoading(false);
     }

@@ -75,10 +75,28 @@ export default function EquipmentList({
 
   const fetchEquipments = async () => {
     try {
-      const response = await axios.get("http://127.0.0.1:8000/api/equipments/", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setEquipments(response.data);
+      const headers = { Authorization: `Bearer ${token}` };
+      
+      // Fetch all equipments handling pagination
+      let allEquipments: Equipment[] = [];
+      let nextUrl: string | null = "http://127.0.0.1:8000/api/equipments/?page_size=1000";
+      
+      while (nextUrl) {
+        const response: any = await axios.get(nextUrl, { headers });
+        
+        // Check if response is paginated or direct array
+        if (response.data.results) {
+          allEquipments = [...allEquipments, ...response.data.results];
+          nextUrl = response.data.next;
+        } else if (Array.isArray(response.data)) {
+          allEquipments = response.data;
+          nextUrl = null;
+        } else {
+          throw new Error('Formato de respuesta inesperado');
+        }
+      }
+      
+      setEquipments(allEquipments);
     } catch (err) {
       setError("Error al cargar equipos");
     } finally {
@@ -126,14 +144,12 @@ export default function EquipmentList({
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold text-gray-900">Equipos</h2>
-        {userRole === 'admin' && (
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-          >
-            Crear Equipo
-          </button>
-        )}
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+        >
+          Crear Equipo
+        </button>
       </div>
       <div className="space-y-2">
         {equipments.map((equipment) => (

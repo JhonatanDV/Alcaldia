@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import EquipmentList from "@/components/EquipmentList";
 import MaintenanceForm from "@/components/MaintenanceForm";
 import PhotoGallery from "@/components/PhotoGallery";
@@ -12,6 +12,17 @@ export default function Home() {
   const [userRole, setUserRole] = useState<'admin' | 'technician' | null>(null);
   const [selectedEquipment, setSelectedEquipment] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'equipment' | 'gallery' | 'reports'>('equipment');
+
+  useEffect(() => {
+    // Check if user is already logged in
+    const storedToken = localStorage.getItem('access_token');
+    const storedRole = localStorage.getItem('user_role') as 'admin' | 'technician' | null;
+    
+    if (storedToken) {
+      // Redirect to dashboard if already authenticated
+      window.location.href = '/dashboard';
+    }
+  }, []);
 
   if (!token) {
     return <LoginForm onLogin={setToken} onRoleSet={setUserRole} />;

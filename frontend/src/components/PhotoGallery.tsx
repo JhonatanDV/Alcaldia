@@ -62,10 +62,28 @@ export default function PhotoGallery({ token, userRole }: PhotoGalleryProps) {
 
   const fetchEquipments = async () => {
     try {
-      const response = await axios.get("http://127.0.0.1:8000/api/equipments/", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setEquipments(response.data.map((eq: any) => ({ id: eq.id, code: eq.code, name: eq.name })));
+      const headers = { Authorization: `Bearer ${token}` };
+      
+      // Fetch all equipments handling pagination
+      let allEquipments: any[] = [];
+      let nextUrl: string | null = "http://127.0.0.1:8000/api/equipments/?page_size=1000";
+      
+      while (nextUrl) {
+        const response: any = await axios.get(nextUrl, { headers });
+        
+        // Check if response is paginated or direct array
+        if (response.data.results) {
+          allEquipments = [...allEquipments, ...response.data.results];
+          nextUrl = response.data.next;
+        } else if (Array.isArray(response.data)) {
+          allEquipments = response.data;
+          nextUrl = null;
+        } else {
+          throw new Error('Formato de respuesta inesperado');
+        }
+      }
+      
+      setEquipments(allEquipments.map((eq: any) => ({ id: eq.id, code: eq.code, name: eq.name })));
     } catch (err) {
       console.error("Error al cargar equipos:", err);
     }
@@ -73,16 +91,32 @@ export default function PhotoGallery({ token, userRole }: PhotoGalleryProps) {
 
   const fetchPhotos = async () => {
     try {
-      // Get all maintenances to collect photos
-      const maintenancesResponse = await axios.get("http://127.0.0.1:8000/api/maintenances/", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const headers = { Authorization: `Bearer ${token}` };
+      
+      // Fetch all maintenances handling pagination
+      let allMaintenances: any[] = [];
+      let nextUrl: string | null = "http://127.0.0.1:8000/api/maintenances/?page_size=1000";
+      
+      while (nextUrl) {
+        const response: any = await axios.get(nextUrl, { headers });
+        
+        // Check if response is paginated or direct array
+        if (response.data.results) {
+          allMaintenances = [...allMaintenances, ...response.data.results];
+          nextUrl = response.data.next;
+        } else if (Array.isArray(response.data)) {
+          allMaintenances = response.data;
+          nextUrl = null;
+        } else {
+          throw new Error('Formato de respuesta inesperado');
+        }
+      }
 
       const allPhotos: (Photo & { maintenance_details?: Maintenance })[] = [];
       const uniqueSections = new Set<string>();
 
       // Collect all photos from maintenances
-      maintenancesResponse.data.forEach((maintenance: Maintenance & { photos: Photo[] }) => {
+      allMaintenances.forEach((maintenance: Maintenance & { photos: Photo[] }) => {
         if (maintenance.photos && maintenance.photos.length > 0) {
           maintenance.photos.forEach((photo) => {
             allPhotos.push({

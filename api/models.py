@@ -39,6 +39,7 @@ class Maintenance(models.Model):
     ], blank=True, null=True)
     observaciones_usuario = models.TextField(blank=True, null=True)
     is_incident = models.BooleanField(default=False, help_text="Marcar si es una incidencia (ej. operador no permite mantenimiento)")
+    incident_notes = models.TextField(blank=True, null=True, help_text="Notas específicas del incidente")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

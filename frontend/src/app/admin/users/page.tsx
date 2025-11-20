@@ -33,6 +33,7 @@ export default function UsersAdminPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [userRole, setUserRole] = useState<'admin' | 'technician' | null>(null);
 
   const [formData, setFormData] = useState({
     username: '',
@@ -55,9 +56,25 @@ export default function UsersAdminPage() {
     fetchData();
   }, []);
 
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user_role');
+    window.location.href = '/';
+  };
+
   const fetchData = async () => {
     try {
       const token = localStorage.getItem('access_token');
+      const role = localStorage.getItem('user_role') as 'admin' | 'technician' | null;
+      
+      if (!token) {
+        window.location.href = '/';
+        return;
+      }
+
+      setUserRole(role);
+
       if (!token) {
         setError('No está autenticado');
         return;
@@ -213,19 +230,104 @@ export default function UsersAdminPage() {
 
   if (error) {
     return (
-      <div className="p-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          {error}
+      <div className="min-h-screen bg-gray-50">
+        <header className="bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <h1 className="text-2xl font-bold text-gray-900">Gestión de Usuarios</h1>
+            </div>
+          </div>
+        </header>
+        <div className="p-8">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            {error}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50">
+      {/* Header Navigation */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center space-x-4">
+              <h1 className="text-2xl font-bold text-gray-900">
+                Sistema de Mantenimiento
+              </h1>
+              {userRole && (
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  userRole === 'admin'
+                    ? 'bg-red-100 text-red-800'
+                    : 'bg-blue-100 text-blue-800'
+                }`}>
+                  {userRole === 'admin' ? 'Administrador' : 'Técnico'}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center space-x-4">
+              <a
+                href="/dashboard"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+              >
+                Dashboard
+              </a>
+              <a
+                href="/equipment/new"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+              >
+                <svg
+                  className="mr-2 h-4 w-4"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                Nuevo Equipo
+              </a>
+              <a
+                href="/maintenance/new"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
+              >
+                <svg
+                  className="mr-2 h-4 w-4"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                Nuevo Mantenimiento
+              </a>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cerrar Sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto p-8">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Gestión de Usuarios</h1>
+          <h2 className="text-3xl font-bold text-gray-900">Gestión de Usuarios</h2>
           <button
             onClick={() => setShowCreateModal(true)}
             className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
