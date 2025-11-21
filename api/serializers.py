@@ -137,9 +137,21 @@ class MaintenanceSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_tecnico_nombre(self, obj):
-        if obj.tecnico_responsable:
-            return f"{obj.tecnico_responsable.first_name} {obj.tecnico_responsable.last_name}".strip() or obj.tecnico_responsable.username
+        if obj.technician:
+            return f"{obj.technician.first_name} {obj.technician.last_name}".strip() or obj.technician.username
         return None
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        maintenance = Maintenance.objects.create(**validated_data)
+
+        # Handle photos if present
+        if request and hasattr(request, 'FILES'):
+            photos = request.FILES.getlist('photos')
+            for photo in photos:
+                Photo.objects.create(maintenance=maintenance, photo=photo, uploaded_by=request.user if request else None)
+
+        return maintenance
 
 
 class IncidentSerializer(serializers.ModelSerializer):

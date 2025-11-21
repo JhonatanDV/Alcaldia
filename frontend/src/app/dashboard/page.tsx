@@ -56,7 +56,6 @@ export default function DashboardPage() {
         const role = localStorage.getItem('user_role') as 'admin' | 'technician' | null;
         
         if (!token) {
-          // Redirect to login if not authenticated
           window.location.href = '/';
           return;
         }
@@ -67,13 +66,47 @@ export default function DashboardPage() {
           Authorization: `Bearer ${token}`,
         };
 
-        const [statsResponse, equipmentResponse] = await Promise.all([
-          axios.get(`${API_URL}/api/dashboard/`, { headers }),
-          axios.get(`${API_URL}/api/dashboard/equipment/`, { headers }),
+        // Cambiar las URLs para que coincidan con las rutas del backend
+        const [statsResponse, chartsResponse, recentActivityResponse] = await Promise.all([
+          axios.get(`${API_URL}/api/dashboard/stats/`, { headers }),
+          axios.get(`${API_URL}/api/dashboard/charts/`, { headers }),
+          axios.get(`${API_URL}/api/dashboard/recent-activity/`, { headers }),
         ]);
 
-        setStats(statsResponse.data);
-        setEquipmentStats(equipmentResponse.data);
+        // Combinar los datos de las diferentes respuestas
+        const combinedStats = {
+          summary: {
+            total_maintenances: statsResponse.data.overview.total_maintenances,
+            total_equipments: statsResponse.data.overview.total_equipment,
+            total_reports: statsResponse.data.overview.total_reports,
+            total_incidents: statsResponse.data.overview.total_incidents,
+          },
+          maintenances_by_type: statsResponse.data.maintenance_by_type,
+          maintenances_by_month: chartsResponse.data.maintenances_per_month,
+          maintenances_by_dependency: [], // Este dato no está en las vistas actuales
+          maintenances_by_sede: [], // Este dato no está en las vistas actuales
+          recent_maintenances: recentActivityResponse.data.recent_maintenances,
+          top_equipment: chartsResponse.data.equipment_most_maintenances,
+          ratings_distribution: [],
+        };
+
+        const combinedEquipmentStats = {
+          equipment_with_last_maintenance: recentActivityResponse.data.recent_maintenances.map((m: any) => ({
+            id: m.id,
+            placa: m.equipment__code,
+            equipment_type: m.maintenance_type,
+            last_maintenance_date: m.maintenance_date,
+            days_since_maintenance: 0,
+          })),
+          equipment_without_maintenance: recentActivityResponse.data.equipment_needing_maintenance.map((e: any) => ({
+            id: e.id,
+            placa: e.code,
+            equipment_type: 'N/A',
+          })),
+        };
+
+        setStats(combinedStats);
+        setEquipmentStats(combinedEquipmentStats);
         setLoading(false);
       } catch (err: any) {
         console.error('Error fetching dashboard:', err);

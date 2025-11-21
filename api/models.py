@@ -56,7 +56,22 @@ class Maintenance(models.Model):
     vigencia = models.DateField(null=True, blank=True)
     dependencia = models.CharField(max_length=255, null=True, blank=True)
     ubicacion = models.CharField(max_length=255, null=True, blank=True)
-    
+
+    # Campos del formulario
+    sede = models.CharField(max_length=255, null=True, blank=True)
+    oficina = models.CharField(max_length=255, null=True, blank=True)
+    placa = models.CharField(max_length=100, null=True, blank=True)
+    hora_inicio = models.TimeField(null=True, blank=True)
+    hora_final = models.TimeField(null=True, blank=True)
+    activities = models.JSONField(default=dict, blank=True)
+    observaciones_generales = models.TextField(blank=True, default='')
+    observaciones_seguridad = models.TextField(blank=True, default='')
+    calificacion_servicio = models.CharField(max_length=20, null=True, blank=True)
+    observaciones_usuario = models.TextField(blank=True, default='')
+    is_incident = models.BooleanField(default=False)
+    incident_notes = models.TextField(blank=True, default='')
+    equipment_type = models.CharField(max_length=20, default='computer')
+
     # Firmas
     elaborado_por = models.CharField(max_length=255, null=True, blank=True)
     elaborado_firma = models.ImageField(upload_to='signatures/', null=True, blank=True)

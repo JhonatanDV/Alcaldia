@@ -18,6 +18,8 @@ from django.dispatch import receiver
 import boto3
 from django.conf import settings
 from botocore.client import Config
+from django.db.models import Count, Q
+from datetime import datetime, timedelta
 
 class EquipmentViewSet(viewsets.ModelViewSet):
     queryset = Equipment.objects.all().order_by('-created_at')
@@ -156,9 +158,10 @@ class ReportGenerateView(APIView):
 
 class UserInfoView(APIView):
     permission_classes = [IsAuthenticated]
-    
+
     def get(self, request):
         user = request.user
+        groups = [group.name for group in user.groups.all()]
         return Response({
             'id': user.id,
             'username': user.username,
@@ -167,4 +170,67 @@ class UserInfoView(APIView):
             'last_name': user.last_name,
             'is_staff': user.is_staff,
             'is_superuser': user.is_superuser,
+            'groups': groups,
         })
+
+class DashboardView(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Estadísticas generales del dashboard
+        """
+        # Total de equipos
+        total_equipment = Equipment.objects.count()
+        
+        # Total de mantenimientos
+        total_maintenances = Maintenance.objects.count()
+        
+        # Mantenimientos pendientes
+        pending_maintenances = Maintenance.objects.filter(
+            Q(activities__icontains='pendiente') | Q(status='pending')
+        ).distinct().count()
+        
+        # Mantenimientos del mes actual
+        current_month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        maintenances_this_month = Maintenance.objects.filter(
+            created_at__gte=current_month_start
+        ).count()
+        
+        # Equipos por tipo/categoría (si existe)
+        equipment_by_type = Equipment.objects.values('name').annotate(
+            count=Count('id')
+        )[:5]  # Top 5
+        
+        # Mantenimientos recientes
+        recent_maintenances = Maintenance.objects.select_related(
+            'equipment', 'technician'
+        ).order_by('-created_at')[:5]
+        
+        return Response({
+            'total_equipment': total_equipment,
+            'total_maintenances': total_maintenances,
+            'pending_maintenances': pending_maintenances,
+            'maintenances_this_month': maintenances_this_month,
+            'equipment_by_type': list(equipment_by_type),
+            'recent_maintenances': MaintenanceSerializer(
+                recent_maintenances, many=True
+            ).data
+        })
+
+
+class DashboardEquipmentView(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Lista de equipos para el dashboard
+        """
+        equipment = Equipment.objects.annotate(
+            maintenance_count=Count('maintenances')
+        ).order_by('-created_at')[:10]
+        
+        serializer = EquipmentSerializer(equipment, many=True)
+        return Response(serializer.data)

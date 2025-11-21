@@ -5,165 +5,159 @@ Dashboard views with complete statistics and metrics.
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Count, Q
+from rest_framework.authentication import SessionAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.db.models import Count, Q, Avg
 from django.utils import timezone
 from datetime import timedelta
-from django.contrib.auth.models import User
-from .models import Equipment, Maintenance, Report
+from api.models import Maintenance, Equipment, Incident
 
 
 class DashboardStatsView(APIView):
     """
-    Get complete dashboard statistics.
+    Estadísticas generales del dashboard
     """
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Basic counts
-        total_equipment = Equipment.objects.count()
+        """
+        Retorna estadísticas generales del sistema
+        """
+        # Estadísticas generales
         total_maintenances = Maintenance.objects.count()
-        total_incidents = Maintenance.objects.filter(is_incident=True).count()
-        total_users = User.objects.filter(is_active=True).count()
-        total_reports = Report.objects.count()
-
-        # Recent activity (last 30 days)
-        thirty_days_ago = timezone.now() - timedelta(days=30)
-        recent_maintenances = Maintenance.objects.filter(
-            maintenance_date__gte=thirty_days_ago
-        ).count()
-        recent_incidents = Maintenance.objects.filter(
-            maintenance_date__gte=thirty_days_ago,
-            is_incident=True
-        ).count()
-
-        # Equipment status (we'll use a simple approach since no status field exists)
-        # For now, consider equipment "in maintenance" if it had maintenance in last 30 days
-        equipment_with_recent_maintenance = Equipment.objects.filter(
-            maintenances__maintenance_date__gte=thirty_days_ago
-        ).distinct().count()
-
-        # Maintenance by type
-        maintenance_by_type = Maintenance.objects.values(
-            'maintenance_type'
-        ).annotate(count=Count('id')).order_by('-count')
-
-        # Incidents by "status" (we'll use a simple approach)
-        incidents_by_status = [
-            {'estado': 'reportado', 'count': total_incidents}
-        ]
-
+        total_equipment = Equipment.objects.count()
+        total_reports = Maintenance.objects.filter(reports__isnull=False).distinct().count()
+        total_incidents = Incident.objects.count()
+        
+        # Mantenimientos por estado
+        maintenances_by_status = Maintenance.objects.values('status').annotate(
+            count=Count('id')
+        ).order_by('-count')
+        
+        # Mantenimientos por tipo
+        maintenance_by_type = Maintenance.objects.values('maintenance_type').annotate(
+            count=Count('id')
+        ).order_by('-count')
+        
+        # Equipos más mantenidos
+        equipment_most_maintenances = Equipment.objects.annotate(
+            maintenance_count=Count('maintenances')
+        ).order_by('-maintenance_count')[:5]
+        
+        equipment_data = [{
+            'equipment_name': eq.name,
+            'equipment_serial': eq.serial_number,  # ← Cambio aquí
+            'maintenance_count': eq.maintenance_count
+        } for eq in equipment_most_maintenances]
+        
+        # Calificaciones promedio
+        avg_rating = 0
+        
         return Response({
             'overview': {
-                'total_equipment': total_equipment,
                 'total_maintenances': total_maintenances,
-                'total_incidents': total_incidents,
-                'total_users': total_users,
+                'total_equipment': total_equipment,
                 'total_reports': total_reports,
-                'recent_maintenances': recent_maintenances,
-                'recent_incidents': recent_incidents,
+                'total_incidents': total_incidents,
             },
-            'equipment_status': {
-                'total': total_equipment,
-                'with_recent_maintenance': equipment_with_recent_maintenance,
-            },
+            'maintenances_by_status': list(maintenances_by_status),
             'maintenance_by_type': list(maintenance_by_type),
-            'incidents_by_status': incidents_by_status,
+            'equipment_most_maintenances': equipment_data,
+            'average_rating': avg_rating
         })
 
 
 class DashboardChartsView(APIView):
-    """
-    Get data for dashboard charts.
-    """
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Maintenances per month (last 12 months)
-        twelve_months_ago = timezone.now() - timedelta(days=365)
+        """
+        Datos para gráficos del dashboard
+        """
+        # Mantenimientos por mes (últimos 12 meses)
+        today = timezone.now()
         maintenances_per_month = []
-
-        for i in range(12):
-            month_start = timezone.now() - timedelta(days=30 * (11 - i))
-            month_end = month_start + timedelta(days=30)
+        
+        for i in range(11, -1, -1):
+            month_start = (today.replace(day=1) - timedelta(days=i*30)).replace(day=1)
+            month_end = (month_start + timedelta(days=32)).replace(day=1)
+            
             count = Maintenance.objects.filter(
-                maintenance_date__gte=month_start,
-                maintenance_date__lt=month_end
+                scheduled_date__gte=month_start,
+                scheduled_date__lt=month_end
             ).count()
+            
             maintenances_per_month.append({
                 'month': month_start.strftime('%b %Y'),
                 'count': count
             })
-
-        # Maintenances by technician (performed_by field)
-        maintenances_by_tech = Maintenance.objects.values(
-            'performed_by'
-        ).annotate(count=Count('id')).order_by('-count')[:10]
-
-        # Equipment with most maintenances
+        
+        # Equipos con más mantenimientos
         equipment_most_maintenances = Equipment.objects.annotate(
             maintenance_count=Count('maintenances')
-        ).order_by('-maintenance_count')[:10].values(
-            'code', 'name', 'maintenance_count'
-        )
-
-        # Incidents per month
-        incidents_per_month = []
-        for i in range(12):
-            month_start = timezone.now() - timedelta(days=30 * (11 - i))
-            month_end = month_start + timedelta(days=30)
-            count = Maintenance.objects.filter(
-                maintenance_date__gte=month_start,
-                maintenance_date__lt=month_end,
-                is_incident=True
-            ).count()
-            incidents_per_month.append({
-                'month': month_start.strftime('%b %Y'),
-                'count': count
-            })
-
+        ).order_by('-maintenance_count')[:10]
+        
+        equipment_data = [{
+            'equipment_name': eq.name,
+            'equipment_serial': eq.serial_number,  # ← Cambio aquí
+            'maintenance_count': eq.maintenance_count
+        } for eq in equipment_most_maintenances]
+        
+        # Mantenimientos por tipo
+        maintenance_by_type = Maintenance.objects.values('maintenance_type').annotate(
+            count=Count('id')
+        ).order_by('-count')
+        
         return Response({
             'maintenances_per_month': maintenances_per_month,
-            'maintenances_by_technician': list(maintenances_by_tech),
-            'equipment_most_maintenances': list(equipment_most_maintenances),
-            'incidents_per_month': incidents_per_month,
+            'equipment_most_maintenances': equipment_data,
+            'maintenance_by_type': list(maintenance_by_type)
         })
 
 
 class DashboardRecentActivityView(APIView):
-    """
-    Get recent activity for dashboard.
-    """
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Recent maintenances (last 10)
+        """
+        Actividad reciente del dashboard
+        """
+        # Mantenimientos recientes
         recent_maintenances = Maintenance.objects.select_related(
-            'equipment'
-        ).order_by('-maintenance_date')[:10].values(
-            'id', 'equipment__code', 'equipment__name', 'maintenance_type',
-            'maintenance_date', 'performed_by', 'is_incident'
-        )
-
-        # Recent incidents (last 10) - maintenances marked as incidents
-        recent_incidents = Maintenance.objects.select_related(
-            'equipment'
-        ).filter(is_incident=True).order_by('-maintenance_date')[:10].values(
-            'id', 'equipment__code', 'maintenance_type', 'description',
-            'maintenance_date', 'performed_by'
-        )
-
-        # Equipment needing maintenance (no recent maintenance in 90 days)
-        ninety_days_ago = timezone.now() - timedelta(days=90)
-        equipment_needing_maintenance = Equipment.objects.exclude(
-            maintenances__maintenance_date__gte=ninety_days_ago
-        ).distinct()[:10].values(
-            'id', 'code', 'name'
-        )
-
+            'equipment', 'technician'
+        ).order_by('-scheduled_date')[:10]
+        
+        recent_data = [{
+            'id': m.id,
+            'equipment_name': m.equipment.name,
+            'equipment_serial': m.equipment.serial_number,  # ← Cambio aquí
+            'maintenance_type': m.maintenance_type,
+            'scheduled_date': m.scheduled_date,
+            'completion_date': m.completion_date,
+            'status': m.status,
+            'technician_name': f"{m.technician.first_name} {m.technician.last_name}" if m.technician else 'Sin asignar'
+        } for m in recent_maintenances]
+        
+        # Equipos que necesitan mantenimiento
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        equipment_needing_maintenance = Equipment.objects.filter(
+            Q(maintenances__isnull=True) |
+            Q(maintenances__completion_date__lt=thirty_days_ago)
+        ).distinct()[:10]
+        
+        equipment_data = [{
+            'id': eq.id,
+            'name': eq.name,
+            'serial': eq.serial_number,  # ← Cambio aquí
+            'last_maintenance': eq.maintenances.order_by('-completion_date').first().completion_date if eq.maintenances.exists() else None
+        } for eq in equipment_needing_maintenance]
+        
         return Response({
-            'recent_maintenances': list(recent_maintenances),
-            'recent_incidents': list(recent_incidents),
-            'equipment_needing_maintenance': list(equipment_needing_maintenance),
+            'recent_maintenances': recent_data,
+            'equipment_needing_maintenance': equipment_data
         })
 
 

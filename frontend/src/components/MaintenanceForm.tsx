@@ -22,7 +22,7 @@ export default function MaintenanceForm({
   onMaintenanceCreated,
 }: MaintenanceFormProps) {
   const [formData, setFormData] = useState({
-    maintenance_type: "computer",
+    maintenance_type: "preventive",
     description: "",
     maintenance_date: "",
     performed_by: "",
@@ -39,6 +39,7 @@ export default function MaintenanceForm({
     observaciones_usuario: "",
     is_incident: false,
     incident_notes: "",
+    equipment_type: "computer",
   });
   const [photos, setPhotos] = useState<File[]>([]);
   const [signature, setSignature] = useState<string | null>(null);
@@ -65,8 +66,8 @@ export default function MaintenanceForm({
   const handleMaintenanceTypeChange = (type: string) => {
     setFormData((prev) => ({
       ...prev,
-      maintenance_type: type,
-      activities: {}, // Reset activities when type changes
+      equipment_type: type,
+      activities: {},
     }));
   };
 
@@ -114,9 +115,10 @@ export default function MaintenanceForm({
     try {
       const formDataToSend = new FormData();
       formDataToSend.append("equipment", equipmentId.toString());
-      formDataToSend.append("maintenance_type", formData.maintenance_type);
+      formDataToSend.append("maintenance_type", "preventivo");
+      formDataToSend.append("equipment_type", formData.equipment_type);
+      formDataToSend.append("scheduled_date", formData.maintenance_date);
       formDataToSend.append("description", formData.description);
-      formDataToSend.append("maintenance_date", formData.maintenance_date);
       formDataToSend.append("performed_by", formData.performed_by);
       formDataToSend.append("sede", formData.sede);
       formDataToSend.append("dependencia", formData.dependencia);
@@ -132,26 +134,21 @@ export default function MaintenanceForm({
       formDataToSend.append("is_incident", formData.is_incident.toString());
       formDataToSend.append("incident_notes", formData.incident_notes);
 
-      // Add photos
-      photos.forEach((photo, index) => {
+      photos.forEach((photo) => {
         formDataToSend.append("photos", photo);
       });
 
-      // Add signature if exists
       if (signature) {
-        // Convert base64 to blob
         const signatureBlob = await fetch(signature).then((res) => res.blob());
         formDataToSend.append("signature", signatureBlob, "signature.png");
       }
 
-      // Add second signature if exists
       if (secondSignature) {
-        // Convert base64 to blob
         const secondSignatureBlob = await fetch(secondSignature).then((res) => res.blob());
         formDataToSend.append("second_signature", secondSignatureBlob, "second_signature.png");
       }
 
-      const response = await axios.post(
+      await axios.post(
         "http://127.0.0.1:8000/api/maintenances/",
         formDataToSend,
         {
@@ -164,14 +161,14 @@ export default function MaintenanceForm({
 
       // Reset form
       setFormData({
-        maintenance_type: "computer",
+        maintenance_type: "preventive",
         description: "",
         maintenance_date: "",
         performed_by: "",
-        sede: "",
+        sede: equipmentLocation,
         dependencia: "",
         oficina: "",
-        placa: "",
+        placa: equipmentCode,
         hora_inicio: "",
         hora_final: "",
         activities: {},
@@ -181,6 +178,7 @@ export default function MaintenanceForm({
         observaciones_usuario: "",
         is_incident: false,
         incident_notes: "",
+        equipment_type: "computer",
       });
       setPhotos([]);
       setSignature(null);
@@ -188,19 +186,16 @@ export default function MaintenanceForm({
       sigPadRef.current?.clear();
       secondSigPadRef.current?.clear();
 
-      // Llamar al callback para notificar éxito
       onMaintenanceCreated();
     } catch (err: any) {
       console.error('Error completo:', err);
       console.error('Respuesta del servidor:', err.response?.data);
       
-      // Construir mensaje de error detallado
       let errorMessage = "Error al crear mantenimiento";
       
       if (err.response?.data) {
         const errorData = err.response.data;
         
-        // Si hay errores de validación por campo
         if (typeof errorData === 'object' && !errorData.detail) {
           const fieldErrors = Object.entries(errorData)
             .map(([field, errors]: [string, any]) => {
@@ -221,7 +216,7 @@ export default function MaintenanceForm({
       }
       
       setError(errorMessage);
-      alert(errorMessage); // Mostrar alerta para debugging
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -281,7 +276,7 @@ export default function MaintenanceForm({
     "Alineación de rodillos alimentación de papel",
   ];
 
-  const currentActivities = formData.maintenance_type === 'computer' ? computerActivities : printerScannerActivities;
+  const currentActivities = formData.equipment_type === 'computer' ? computerActivities : printerScannerActivities;
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm border">
@@ -369,17 +364,17 @@ export default function MaintenanceForm({
 
         <div>
           <label
-            htmlFor="maintenance_type"
+            htmlFor="equipment_type"
             className="block text-sm font-medium text-gray-700"
           >
-            Tipo de Mantenimiento
+            Tipo de Equipo
           </label>
           <select
-            id="maintenance_type"
-            name="maintenance_type"
+            id="equipment_type"
+            name="equipment_type"
             required={!formData.is_incident}
             className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
-            value={formData.maintenance_type}
+            value={formData.equipment_type}
             onChange={(e) => handleMaintenanceTypeChange(e.target.value)}
           >
             <option value="computer">Rutina Mantenimiento Preventivo de Equipos de Cómputo</option>
@@ -555,10 +550,10 @@ export default function MaintenanceForm({
         {!formData.is_incident && (
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-4">
-              {formData.maintenance_type === 'computer' ? 'RUTINA DE HARDWARE' : 'RUTINA DE ESCÁNER'}
+              {formData.equipment_type === 'computer' ? 'RUTINA DE HARDWARE' : 'RUTINA DE ESCÁNER'}
             </h3>
             <div className="space-y-2">
-              {currentActivities.slice(0, formData.maintenance_type === 'computer' ? 7 : 4).map((activity) => (
+              {currentActivities.slice(0, formData.equipment_type === 'computer' ? 7 : 4).map((activity) => (
                 <div key={activity} className="flex items-center space-x-4">
                   <span className="text-sm text-gray-700 flex-1">{activity}</span>
                   <div className="flex space-x-2">
@@ -591,7 +586,7 @@ export default function MaintenanceForm({
           </div>
         )}
 
-        {formData.maintenance_type === 'computer' && !formData.is_incident && (
+        {formData.equipment_type === 'computer' && !formData.is_incident && (
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-4">
               RUTINA DE SOFTWARE
@@ -630,7 +625,7 @@ export default function MaintenanceForm({
           </div>
         )}
 
-        {formData.maintenance_type === 'printer_scanner' && !formData.is_incident && (
+        {formData.equipment_type === 'printer_scanner' && !formData.is_incident && (
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-4">
               RUTINA DE IMPRESORAS
