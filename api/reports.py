@@ -136,7 +136,7 @@ class MaintenanceReportPDF:
             ['Placa:', self.maintenance.equipo.placa, 'Tipo:', self.maintenance.equipo.tipo],
             ['Marca:', self.maintenance.equipo.marca, 'Modelo:', self.maintenance.equipo.modelo],
             ['Serial:', self.maintenance.equipo.serial or 'N/A', 'Estado:', self.maintenance.equipo.estado],
-            ['Dependencia:', self.maintenance.equipo.dependencia, 'Sede:', self.maintenance.equipo.sede or 'N/A'],
+            ['Dependencia:', self.maintenance.equipo.dependencia, 'Sede:', self.maintenance.sede or 'N/A'],
         ]
         
         equipment_table = Table(equipment_data, colWidths=[2*cm, 6*cm, 2*cm, 6*cm])
