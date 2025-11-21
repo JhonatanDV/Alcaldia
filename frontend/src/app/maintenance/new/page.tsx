@@ -122,7 +122,7 @@ export default function NewMaintenancePage() {
                     ? 'bg-red-100 text-red-800'
                     : 'bg-blue-100 text-blue-800'
                 }`}>
-                  {userRole === 'admin' ? 'Administrador' : 'Técnico'}
+                  {userRole === 'admin' ? 'Admin' : 'Técnico'}
                 </span>
               )}
             </div>
@@ -133,26 +133,28 @@ export default function NewMaintenancePage() {
               >
                 Dashboard
               </a>
-              <a
-                href="/equipment/new"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-              >
-                <svg
-                  className="mr-2 h-4 w-4"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+              {userRole === 'admin' && (
+                <a
+                  href="/equipment/new"
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                Nuevo Equipo
-              </a>
+                  <svg
+                    className="mr-2 h-4 w-4"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  Nuevo Equipo
+                </a>
+              )}
               {userRole === 'admin' && (
                 <a
                   href="/admin/users"

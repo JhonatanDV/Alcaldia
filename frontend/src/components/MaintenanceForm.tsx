@@ -22,14 +22,14 @@ export default function MaintenanceForm({
   onMaintenanceCreated,
 }: MaintenanceFormProps) {
   const [formData, setFormData] = useState({
-    maintenance_type: "preventive",
+    maintenance_type: "preventivo",
     description: "",
-    maintenance_date: "",
+    scheduled_date: "",
     performed_by: "",
-    sede: equipmentLocation,
+    sede: equipmentLocation || "",
     dependencia: "",
     oficina: "",
-    placa: equipmentCode,
+    placa: equipmentCode || "",
     hora_inicio: "",
     hora_final: "",
     activities: {} as Record<string, boolean | null>,
@@ -118,7 +118,7 @@ export default function MaintenanceForm({
       formDataToSend.append("equipment", equipmentId.toString());
       formDataToSend.append("maintenance_type", formData.maintenance_type);
       formDataToSend.append("description", formData.description);
-      formDataToSend.append("maintenance_date", formData.maintenance_date);
+      formDataToSend.append("scheduled_date", formData.scheduled_date);
       formDataToSend.append("performed_by", formData.performed_by);
       formDataToSend.append("sede", formData.sede);
       formDataToSend.append("dependencia", formData.dependencia);
@@ -163,14 +163,14 @@ export default function MaintenanceForm({
 
       // Reset form
       setFormData({
-        maintenance_type: "preventive",
+        maintenance_type: "preventivo",
         description: "",
-        maintenance_date: "",
+        scheduled_date: "",
         performed_by: "",
-        sede: equipmentLocation,
+        sede: equipmentLocation || "",
         dependencia: "",
         oficina: "",
-        placa: equipmentCode,
+        placa: equipmentCode || "",
         hora_inicio: "",
         hora_final: "",
         activities: {},
@@ -459,18 +459,18 @@ export default function MaintenanceForm({
 
           <div>
             <label
-              htmlFor="maintenance_date"
+              htmlFor="scheduled_date"
               className="block text-sm font-medium text-gray-700"
             >
               Fecha de Mantenimiento
             </label>
             <input
               type="date"
-              id="maintenance_date"
-              name="maintenance_date"
+              id="scheduled_date"
+              name="scheduled_date"
               required={!formData.is_incident}
               className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
-              value={formData.maintenance_date}
+              value={formData.scheduled_date}
               onChange={handleInputChange}
             />
           </div>

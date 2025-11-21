@@ -18,29 +18,15 @@ class PhotoSerializer(serializers.ModelSerializer):
 
 
 class SignatureSerializer(serializers.ModelSerializer):
-    firmante_nombre = serializers.SerializerMethodField()
-
     class Meta:
         model = Signature
         fields = '__all__'
 
-    def get_firmante_nombre(self, obj):
-        if obj.firmante:
-            return f"{obj.firmante.first_name} {obj.firmante.last_name}".strip() or obj.firmante.username
-        return None
-
 
 class SecondSignatureSerializer(serializers.ModelSerializer):
-    firmante_nombre = serializers.SerializerMethodField()
-
     class Meta:
         model = SecondSignature
         fields = '__all__'
-
-    def get_firmante_nombre(self, obj):
-        if obj.firmante:
-            return f"{obj.firmante.first_name} {obj.firmante.last_name}".strip() or obj.firmante.username
-        return None
 
 
 class ReportSerializer(serializers.ModelSerializer):
@@ -125,8 +111,10 @@ class EquipmentSerializer(serializers.ModelSerializer):
 
 
 class MaintenanceSerializer(serializers.ModelSerializer):
-    equipo_placa = serializers.CharField(source='equipment.code', read_only=True)
+    equipo_placa = serializers.SerializerMethodField()
     equipo_tipo = serializers.CharField(source='equipment.name', read_only=True)
+    equipo_marca = serializers.CharField(source='equipment.brand', read_only=True)
+    equipo_modelo = serializers.CharField(source='equipment.model', read_only=True)
     tecnico_nombre = serializers.SerializerMethodField()
     photos = PhotoSerializer(many=True, read_only=True)
     signatures = SignatureSerializer(many=True, read_only=True)
@@ -138,6 +126,11 @@ class MaintenanceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Maintenance
         fields = '__all__'
+
+    def get_equipo_placa(self, obj):
+        if obj.equipment:
+            return obj.equipment.code or obj.equipment.serial_number or obj.placa or 'N/A'
+        return obj.placa or 'N/A'
 
     def get_tecnico_nombre(self, obj):
         if obj.technician:
@@ -157,6 +150,12 @@ class MaintenanceSerializer(serializers.ModelSerializer):
                 activities = {}
         validated_data['activities'] = activities
         
+        # Convert is_incident string to boolean if needed
+        if 'is_incident' in validated_data:
+            is_incident = validated_data.get('is_incident')
+            if isinstance(is_incident, str):
+                validated_data['is_incident'] = is_incident.lower() == 'true'
+        
         maintenance = Maintenance.objects.create(**validated_data)
 
         # Handle photos if present
@@ -172,10 +171,13 @@ class MaintenanceSerializer(serializers.ModelSerializer):
             # Handle signature
             signature = request.FILES.get('signature')
             if signature:
+                signer_name = 'Técnico'
+                if maintenance.technician:
+                    signer_name = maintenance.technician.get_full_name() or maintenance.technician.username
                 Signature.objects.create(
                     maintenance=maintenance,
                     signature_image=signature,
-                    signer_name=maintenance.performed_by or 'Técnico',
+                    signer_name=signer_name,
                     signer_role='Técnico'
                 )
             

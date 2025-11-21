@@ -36,13 +36,13 @@ class IsAdminOrTechnician(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user and (
             request.user.is_staff or
-            request.user.groups.filter(name='Tecnico').exists()
+            request.user.groups.filter(name__in=['Admin', 'Tecnico']).exists()
         )
 
     def has_object_permission(self, request, view, obj):
         return request.user and (
             request.user.is_staff or
-            request.user.groups.filter(name='Tecnico').exists()
+            request.user.groups.filter(name__in=['Admin', 'Tecnico']).exists()
         )
 
 
@@ -73,5 +73,5 @@ class CanViewReports(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user and (
             request.user.is_staff or
-            request.user.groups.filter(name__in=['Tecnico', 'Supervisor', 'Coordinador']).exists()
+            request.user.groups.filter(name__in=['Admin', 'Tecnico', 'Supervisor', 'Coordinador']).exists()
         )

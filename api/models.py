@@ -5,6 +5,7 @@ from django.utils import timezone
 
 
 class Equipment(models.Model):
+    code = models.CharField(max_length=100, unique=True, null=True, blank=True)
     name = models.CharField(max_length=255)
     serial_number = models.CharField(max_length=100, unique=True, null=True, blank=True)
     model = models.CharField(max_length=100, null=True, blank=True)

@@ -13,7 +13,11 @@ export default function NewEquipmentPage() {
   const [formData, setFormData] = useState({
     code: '',
     name: '',
+    serial_number: '',
+    brand: '',
+    model: '',
     location: '',
+    dependencia: '',
   });
 
   const handleLogout = () => {
@@ -58,7 +62,7 @@ export default function NewEquipmentPage() {
       await axios.post(`${API_URL}/api/equipments/`, formData, { headers });
       
       setSuccess(true);
-      setFormData({ code: '', name: '', location: '' });
+      setFormData({ code: '', name: '', serial_number: '', brand: '', model: '', location: '', dependencia: '' });
       
       // Redirect to dashboard after 2 seconds
       setTimeout(() => {
@@ -88,7 +92,7 @@ export default function NewEquipmentPage() {
                     ? 'bg-red-100 text-red-800'
                     : 'bg-blue-100 text-blue-800'
                 }`}>
-                  {userRole === 'admin' ? 'Administrador' : 'Técnico'}
+                  {userRole === 'admin' ? 'Admin' : 'Técnico'}
                 </span>
               )}
             </div>
@@ -180,6 +184,63 @@ export default function NewEquipmentPage() {
             </div>
 
             <div>
+              <label htmlFor="serial_number" className="block text-sm font-medium text-gray-700 mb-2">
+                Número de Serie <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                id="serial_number"
+                name="serial_number"
+                required
+                value={formData.serial_number}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="Ej: SN123456789"
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                Ingrese el número de serie del equipo
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="brand" className="block text-sm font-medium text-gray-700 mb-2">
+                Marca <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                id="brand"
+                name="brand"
+                required
+                value={formData.brand}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="Ej: HP, Dell, Lenovo"
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                Ingrese la marca del equipo
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="model" className="block text-sm font-medium text-gray-700 mb-2">
+                Modelo <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                id="model"
+                name="model"
+                required
+                value={formData.model}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="Ej: Pavilion 15, Latitude 5420"
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                Ingrese el modelo del equipo
+              </p>
+            </div>
+
+            <div>
               <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
                 Ubicación
               </label>
@@ -194,6 +255,24 @@ export default function NewEquipmentPage() {
               />
               <p className="mt-1 text-sm text-gray-500">
                 Ingrese la ubicación física del equipo (opcional)
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="dependencia" className="block text-sm font-medium text-gray-700 mb-2">
+                Dependencia
+              </label>
+              <input
+                type="text"
+                id="dependencia"
+                name="dependencia"
+                value={formData.dependencia}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="Ej: Sistemas, Contabilidad, Recursos Humanos"
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                Ingrese la dependencia a la que pertenece el equipo (opcional)
               </p>
             </div>
 
@@ -218,9 +297,10 @@ export default function NewEquipmentPage() {
         <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
           <h3 className="text-sm font-semibold text-blue-900 mb-2">💡 Información</h3>
           <ul className="text-sm text-blue-800 space-y-1">
-            <li>• El código del equipo debe ser único en el sistema</li>
+            <li>• El código del equipo y número de serie deben ser únicos en el sistema</li>
             <li>• Una vez creado el equipo, podrá registrar mantenimientos para él</li>
             <li>• Los campos marcados con <span className="text-red-500">*</span> son obligatorios</li>
+            <li>• La marca y modelo se registrarán automáticamente en cada mantenimiento</li>
           </ul>
         </div>
       </div>

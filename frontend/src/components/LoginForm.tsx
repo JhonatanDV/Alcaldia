@@ -25,22 +25,28 @@ export default function LoginForm({ onLogin, onRoleSet }: LoginFormProps) {
         password,
       });
 
-      const { access, refresh } = response.data;
+      // Debug: Log FULL response first
+      console.log('=== LOGIN RESPONSE DEBUG ===');
+      console.log('Full response:', response);
+      console.log('Response data:', response.data);
+      console.log('Response data keys:', Object.keys(response.data));
+      
+      const { access, refresh, role } = response.data;
+
+      // Debug: Log role information
+      console.log('Access token:', access ? 'EXISTS' : 'MISSING');
+      console.log('Refresh token:', refresh ? 'EXISTS' : 'MISSING');
+      console.log('User role received:', role);
+      console.log('Role type:', typeof role);
+      console.log('Role is undefined?', role === undefined);
 
       // Save tokens to localStorage
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
-
-      // Get user info to determine role
-      const userResponse = await axios.get("http://127.0.0.1:8000/api/user-info/", {
-        headers: { Authorization: `Bearer ${access}` },
-      });
-
-      const isAdmin = userResponse.data.is_staff;
-      const role = isAdmin ? 'admin' : 'technician';
-
-      // Save user role to localStorage
       localStorage.setItem('user_role', role);
+
+      // Verify saved role
+      console.log('Role saved to localStorage:', localStorage.getItem('user_role'));
 
       onLogin(access);
       onRoleSet(role);

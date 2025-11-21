@@ -24,14 +24,16 @@ from datetime import datetime, timedelta
 class EquipmentViewSet(viewsets.ModelViewSet):
     queryset = Equipment.objects.all().order_by('-created_at')
     serializer_class = EquipmentSerializer
-    permission_classes = [IsAdmin]  # Default para acciones restrictivas
+    permission_classes = [IsAuthenticated]  # Default base
     pagination_class = PageNumberPagination
 
     def get_permissions(self):
-        if self.action in ['list', 'retrieve', 'create']:
-            # Técnicos pueden ver y crear equipos
+        if self.action in ['list', 'retrieve']:
+            # Técnicos y admins pueden ver equipos
             self.permission_classes = [IsAdminOrTechnician]
-        # update y destroy quedan con IsAdmin (solo admins)
+        elif self.action in ['create', 'update', 'partial_update', 'destroy']:
+            # Solo admins pueden crear, editar y eliminar equipos
+            self.permission_classes = [IsAdmin]
         return super().get_permissions()
 
     @action(detail=True, methods=['get'])
@@ -121,50 +123,57 @@ class ReportGenerateView(APIView):
 
     def post(self, request):
         """
-        Generar reporte de mantenimiento de equipo
+        Generar reporte PDF de mantenimiento
         """
-        equipment_id = request.data.get('equipment_id')
-        date = request.data.get('date')
+        maintenance_id = request.data.get('maintenance_id')
 
-        if not equipment_id or not date:
+        if not maintenance_id:
             return Response(
-                {'error': 'equipment_id y date son requeridos'},
+                {'error': 'maintenance_id es requerido'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         try:
-            # Convert date to start and end of day
-            from datetime import datetime
-            start_date = datetime.strptime(date, '%Y-%m-%d').date()
-            end_date = start_date
-
-            report = generate_equipment_report(
-                equipment_id=int(equipment_id),
-                start_date=start_date,
-                end_date=end_date,
-                user=request.user
+            from .reports import MaintenanceReportPDF
+            from django.core.files.base import ContentFile
+            
+            # Obtener el mantenimiento
+            maintenance = Maintenance.objects.get(id=maintenance_id)
+            
+            # Generar el PDF
+            pdf_generator = MaintenanceReportPDF(maintenance)
+            pdf_buffer = pdf_generator.generate()
+            
+            # Crear el reporte en la base de datos
+            report = Report.objects.create(
+                maintenance=maintenance,
+                title=f"Reporte de Mantenimiento - {maintenance.equipment.code}",
+                content=maintenance.description or '',
+                generated_by=request.user
             )
-
+            
+            # Guardar el archivo PDF
+            pdf_filename = f"reporte_mantenimiento_{maintenance.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            report.pdf_file.save(pdf_filename, ContentFile(pdf_buffer.getvalue()))
+            
             return Response({
                 'id': report.id,
-                'pdf_file': report.pdf_file.url,
-                'created_at': report.generated_at,
-                'expires_at': report.expires_at
+                'pdf_file': request.build_absolute_uri(report.pdf_file.url) if report.pdf_file else None,
+                'title': report.title,
+                'generated_at': report.generated_at,
             }, status=status.HTTP_201_CREATED)
 
-        except Equipment.DoesNotExist:
+        except Maintenance.DoesNotExist:
             return Response(
-                {'error': 'Equipo no encontrado'},
+                {'error': 'Mantenimiento no encontrado'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        except ValueError as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
         except Exception as e:
+            import traceback
+            print(f"Error generating report: {str(e)}")
+            print(traceback.format_exc())
             return Response(
-                {'error': str(e)},
+                {'error': f'Error al generar el reporte: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 

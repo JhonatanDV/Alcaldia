@@ -2,10 +2,10 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework import routers
 from api.views import EquipmentViewSet, MaintenanceViewSet, ReportListView, ReportGenerateView
-from api.views_auth import LogoutView
+from api.views_auth import LogoutView, CustomTokenObtainPairView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -45,7 +45,7 @@ router.register(r'maintenances', MaintenanceViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/logout/', LogoutView.as_view(), name='logout'),
     path('api/user-info/', user_info_view, name='user-info'),
@@ -54,7 +54,7 @@ urlpatterns = [
     path('api/reports/generate/', ReportGenerateView.as_view(), name='reports-generate'),
     path('api/', include(router.urls)),
     path('api/dashboard/', include('api.urls_dashboard')),
-    path('api/user-management/', include('api.urls_user_management')),
+    path('api/admin/', include('api.urls_user_management')),
     path('api/pdf-package/', include('api.urls_pdf_package')),
 ]
 

@@ -56,7 +56,7 @@ export default function Home() {
                     ? 'bg-red-100 text-red-800'
                     : 'bg-blue-100 text-blue-800'
                 }`}>
-                  {userRole === 'admin' ? 'Administrador' : 'Técnico'}
+                  {userRole === 'admin' ? 'Admin' : 'Técnico'}
                 </span>
               )}
             </div>

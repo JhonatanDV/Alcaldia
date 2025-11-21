@@ -132,11 +132,13 @@ class MaintenanceReportPDF:
         equipment_heading = Paragraph("1. INFORMACIÓN DEL EQUIPO", heading_style)
         elements.append(equipment_heading)
         
+        equipment = self.maintenance.equipment
         equipment_data = [
-            ['Placa:', self.maintenance.equipo.placa, 'Tipo:', self.maintenance.equipo.tipo],
-            ['Marca:', self.maintenance.equipo.marca, 'Modelo:', self.maintenance.equipo.modelo],
-            ['Serial:', self.maintenance.equipo.serial or 'N/A', 'Estado:', self.maintenance.equipo.estado],
-            ['Dependencia:', self.maintenance.equipo.dependencia, 'Sede:', self.maintenance.sede or 'N/A'],
+            ['Placa:', self.maintenance.placa or equipment.code or equipment.serial_number or 'N/A', 'Tipo:', equipment.name],
+            ['Marca:', equipment.brand or 'N/A', 'Modelo:', equipment.model or 'N/A'],
+            ['Serial:', equipment.serial_number or 'N/A', 'Ubicación:', equipment.location or self.maintenance.ubicacion or 'N/A'],
+            ['Dependencia:', self.maintenance.dependencia or equipment.dependencia or 'N/A', 'Sede:', self.maintenance.sede or 'N/A'],
+            ['Oficina:', self.maintenance.oficina or 'N/A', '', ''],
         ]
         
         equipment_table = Table(equipment_data, colWidths=[2*cm, 6*cm, 2*cm, 6*cm])
@@ -162,14 +164,19 @@ class MaintenanceReportPDF:
         maintenance_heading = Paragraph("2. INFORMACIÓN DEL MANTENIMIENTO", heading_style)
         elements.append(maintenance_heading)
         
+        maintenance_date = self.maintenance.scheduled_date or self.maintenance.completion_date or datetime.now()
         maintenance_data = [
-            ['Tipo:', self.maintenance.get_tipo_mantenimiento_display(), 'Fecha:', self.maintenance.fecha_mantenimiento.strftime('%d/%m/%Y')],
-            ['Técnico:', self.maintenance.tecnico_responsable.get_full_name() if self.maintenance.tecnico_responsable else 'N/A', 
-             'Próximo Mtto:', self.maintenance.proximo_mantenimiento.strftime('%d/%m/%Y') if self.maintenance.proximo_mantenimiento else 'N/A'],
+            ['Tipo:', self.maintenance.get_maintenance_type_display() if hasattr(self.maintenance, 'get_maintenance_type_display') else self.maintenance.maintenance_type or 'N/A', 'Fecha:', maintenance_date.strftime('%d/%m/%Y')],
+            ['Hora Inicio:', str(self.maintenance.hora_inicio) if self.maintenance.hora_inicio else 'N/A', 'Hora Final:', str(self.maintenance.hora_final) if self.maintenance.hora_final else 'N/A'],
+            ['Técnico:', self.maintenance.technician.get_full_name() if self.maintenance.technician else 'N/A', 
+             'Estado:', self.maintenance.get_status_display() if hasattr(self.maintenance, 'get_status_display') else self.maintenance.status or 'N/A'],
         ]
         
-        if self.maintenance.costo:
-            maintenance_data.append(['Costo:', f"${self.maintenance.costo:,.2f}", '', ''])
+        if self.maintenance.cost:
+            maintenance_data.append(['Costo:', f"${self.maintenance.cost:,.2f}", '', ''])
+        
+        if self.maintenance.calificacion_servicio:
+            maintenance_data.append(['Calificación:', f"{self.maintenance.calificacion_servicio}/5", '', ''])
         
         maintenance_table = Table(maintenance_data, colWidths=[2*cm, 6*cm, 2.5*cm, 5.5*cm])
         maintenance_table.setStyle(TableStyle([
@@ -194,43 +201,68 @@ class MaintenanceReportPDF:
         description_heading = Paragraph("3. DESCRIPCIÓN DEL TRABAJO REALIZADO", heading_style)
         elements.append(description_heading)
         
-        description_text = Paragraph(self.maintenance.descripcion_trabajo, normal_style)
+        description_text = Paragraph(self.maintenance.description or 'Sin descripción', normal_style)
         elements.append(description_text)
         elements.append(Spacer(1, 0.2*inch))
         
-        # Parts Used Section
-        if self.maintenance.repuestos_utilizados:
-            parts_heading = Paragraph("4. REPUESTOS UTILIZADOS", heading_style)
-            elements.append(parts_heading)
-            parts_text = Paragraph(self.maintenance.repuestos_utilizados, normal_style)
-            elements.append(parts_text)
+        # Activities Section
+        if self.maintenance.activities:
+            activities_heading = Paragraph("4. ACTIVIDADES REALIZADAS", heading_style)
+            elements.append(activities_heading)
+            
+            # Si activities es un dict/JSON, formatearlo
+            activities_text = str(self.maintenance.activities) if self.maintenance.activities else 'No se registraron actividades'
+            activities_para = Paragraph(activities_text, normal_style)
+            elements.append(activities_para)
             elements.append(Spacer(1, 0.2*inch))
         
         # Observations Section
-        if self.maintenance.observaciones:
-            obs_heading = Paragraph("5. OBSERVACIONES", heading_style)
+        section_num = 5
+        if self.maintenance.observaciones_generales:
+            obs_heading = Paragraph(f"{section_num}. OBSERVACIONES GENERALES", heading_style)
             elements.append(obs_heading)
-            obs_text = Paragraph(self.maintenance.observaciones, normal_style)
+            obs_text = Paragraph(self.maintenance.observaciones_generales, normal_style)
             elements.append(obs_text)
             elements.append(Spacer(1, 0.2*inch))
+            section_num += 1
+        
+        if self.maintenance.observaciones_seguridad:
+            seg_heading = Paragraph(f"{section_num}. OBSERVACIONES DE SEGURIDAD", heading_style)
+            elements.append(seg_heading)
+            seg_text = Paragraph(self.maintenance.observaciones_seguridad, normal_style)
+            elements.append(seg_text)
+            elements.append(Spacer(1, 0.2*inch))
+            section_num += 1
+        
+        if self.maintenance.observaciones_usuario:
+            user_heading = Paragraph(f"{section_num}. OBSERVACIONES DEL USUARIO", heading_style)
+            elements.append(user_heading)
+            user_text = Paragraph(self.maintenance.observaciones_usuario, normal_style)
+            elements.append(user_text)
+            elements.append(Spacer(1, 0.2*inch))
+            section_num += 1
         
         # Photos Section
         photos = self.maintenance.photos.all()
         if photos:
-            photos_heading = Paragraph("6. EVIDENCIA FOTOGRÁFICA", heading_style)
+            photos_heading = Paragraph(f"{section_num}. EVIDENCIA FOTOGRÁFICA", heading_style)
             elements.append(photos_heading)
+            section_num += 1
             
             photo_data = []
             photo_row = []
             for idx, photo in enumerate(photos):
-                if photo.image and os.path.exists(photo.image.path):
+                if photo.photo:
                     try:
-                        img = RLImage(photo.image.path, width=2.5*inch, height=2*inch)
-                        photo_row.append(img)
-                        
-                        if len(photo_row) == 2 or idx == len(photos) - 1:
-                            photo_data.append(photo_row)
-                            photo_row = []
+                        # Intentar obtener la ruta del archivo
+                        photo_path = photo.photo.path if hasattr(photo.photo, 'path') else None
+                        if photo_path and os.path.exists(photo_path):
+                            img = RLImage(photo_path, width=2.5*inch, height=2*inch)
+                            photo_row.append(img)
+                            
+                            if len(photo_row) == 2 or idx == len(photos) - 1:
+                                photo_data.append(photo_row)
+                                photo_row = []
                     except Exception as e:
                         print(f"Error loading image: {e}")
             
@@ -248,23 +280,73 @@ class MaintenanceReportPDF:
         
         # Signatures Section
         elements.append(Spacer(1, 0.5*inch))
-        signatures_heading = Paragraph("7. FIRMAS", heading_style)
+        signatures_heading = Paragraph(f"{section_num}. FIRMAS", heading_style)
         elements.append(signatures_heading)
         
-        signature_data = [
-            ['', ''],
-            ['_' * 40, '_' * 40],
-            ['Técnico Responsable', 'Supervisor'],
-            [self.maintenance.tecnico_responsable.get_full_name() if self.maintenance.tecnico_responsable else '', ''],
-        ]
+        # Obtener firmas del mantenimiento
+        signatures = self.maintenance.signatures.all()
+        second_signatures = self.maintenance.second_signatures.all()
+        
+        signature_data = []
+        signature_images = []
+        
+        # Primera firma (técnico)
+        if signatures:
+            sig = signatures.first()
+            if sig.signature_image:
+                try:
+                    sig_path = sig.signature_image.path if hasattr(sig.signature_image, 'path') else None
+                    if sig_path and os.path.exists(sig_path):
+                        sig_img = RLImage(sig_path, width=2*inch, height=1*inch)
+                        signature_images.append(sig_img)
+                    else:
+                        signature_images.append('')
+                except:
+                    signature_images.append('')
+            else:
+                signature_images.append('')
+        else:
+            signature_images.append('')
+        
+        # Segunda firma (usuario/supervisor)
+        if second_signatures:
+            sig2 = second_signatures.first()
+            if sig2.signature_image:
+                try:
+                    sig2_path = sig2.signature_image.path if hasattr(sig2.signature_image, 'path') else None
+                    if sig2_path and os.path.exists(sig2_path):
+                        sig2_img = RLImage(sig2_path, width=2*inch, height=1*inch)
+                        signature_images.append(sig2_img)
+                    else:
+                        signature_images.append('')
+                except:
+                    signature_images.append('')
+            else:
+                signature_images.append('')
+        else:
+            signature_images.append('')
+        
+        signature_data.append(signature_images)
+        signature_data.append(['_' * 40, '_' * 40])
+        
+        # Nombres
+        tech_name = signatures.first().signer_name if signatures else (
+            self.maintenance.technician.get_full_name() if self.maintenance.technician else 
+            self.maintenance.performed_by or 'Técnico'
+        )
+        user_name = second_signatures.first().signer_name if second_signatures else 'Usuario/Supervisor'
+        
+        signature_data.append(['Técnico Responsable', 'Usuario/Supervisor'])
+        signature_data.append([tech_name, user_name])
         
         signature_table = Table(signature_data, colWidths=[3.5*inch, 3.5*inch])
         signature_table.setStyle(TableStyle([
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTSIZE', (0, 0), (-1, -1), 9),
             ('FONTNAME', (0, 2), (-1, 2), 'Helvetica-Bold'),
-            ('TOPPADDING', (0, 0), (-1, 0), 30),
+            ('TOPPADDING', (0, 0), (-1, 0), 10),
             ('BOTTOMPADDING', (0, 1), (-1, 1), 5),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ]))
         elements.append(signature_table)
         

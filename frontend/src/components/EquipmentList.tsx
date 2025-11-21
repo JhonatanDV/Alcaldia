@@ -169,12 +169,14 @@ export default function EquipmentList({
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold text-gray-900">Equipos</h2>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-        >
-          Crear Equipo
-        </button>
+        {userRole === 'admin' && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+          >
+            Crear Equipo
+          </button>
+        )}
       </div>
       <div className="space-y-2">
         {equipments.map((equipment) => (

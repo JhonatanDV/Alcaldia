@@ -97,12 +97,7 @@ export default function ReportDownloader({ token, userRole }: ReportDownloaderPr
     }
   };
 
-  const generateReport = async () => {
-    if (!selectedEquipment || !selectedDate) {
-      setError("Selecciona un equipo y una fecha para generar el reporte");
-      return;
-    }
-
+  const generateReport = async (maintenanceId: number) => {
     setGeneratingReport(true);
     setError("");
 
@@ -110,8 +105,7 @@ export default function ReportDownloader({ token, userRole }: ReportDownloaderPr
       const response = await axios.post(
         "http://127.0.0.1:8000/api/reports/generate/",
         {
-          equipment_id: parseInt(selectedEquipment),
-          date: selectedDate,
+          maintenance_id: maintenanceId,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -121,8 +115,10 @@ export default function ReportDownloader({ token, userRole }: ReportDownloaderPr
       // Refresh reports list
       await fetchReports();
       setSelectedReport(response.data.id);
+      return response.data;
     } catch (err: any) {
       setError(err.response?.data?.detail || "Error al generar el reporte");
+      throw err;
     } finally {
       setGeneratingReport(false);
     }
