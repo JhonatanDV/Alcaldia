@@ -48,20 +48,28 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<'admin' | 'technician' | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Search filters state
+  const [searchFilters, setSearchFilters] = useState<any>({});
+  const [filteredStats, setFilteredStats] = useState<DashboardStats | null>(null);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
+      // Verificar token antes de hacer cualquier petición
+      const token = localStorage.getItem('access_token');
+      const role = localStorage.getItem('user_role') as 'admin' | 'technician' | null;
+      
+      if (!token) {
+        setIsAuthenticated(false);
+        window.location.href = '/';
+        return;
+      }
+
+      setIsAuthenticated(true);
+      setUserRole(role);
+
       try {
-        const token = localStorage.getItem('access_token');
-        const role = localStorage.getItem('user_role') as 'admin' | 'technician' | null;
-        
-        if (!token) {
-          window.location.href = '/';
-          return;
-        }
-
-        setUserRole(role);
-
         const headers = {
           Authorization: `Bearer ${token}`,
         };
@@ -106,6 +114,7 @@ export default function DashboardPage() {
         };
 
         setStats(combinedStats);
+        setFilteredStats(combinedStats); // Initialize filtered stats
         setEquipmentStats(combinedEquipmentStats);
         setLoading(false);
       } catch (err: any) {
@@ -117,6 +126,41 @@ export default function DashboardPage() {
 
     fetchDashboardData();
   }, []);
+
+  // Function to apply filters to dashboard stats
+  const applyFilters = (stats: DashboardStats, filters: any) => {
+    let filtered = { ...stats };
+
+    // Filter maintenances by type
+    if (filters.maintenance_type) {
+      filtered.maintenances_by_type = stats.maintenances_by_type.filter(
+        (item) => item.maintenance_type === filters.maintenance_type
+      );
+    }
+
+    // Filter by status (if we had status data)
+    // Note: Current backend doesn't provide status breakdown, but we can add it
+
+    // Filter by sede (if we had sede data)
+    // Note: Current backend doesn't provide sede breakdown, but we can add it
+
+    // Filter by dependencia (if we had dependencia data)
+    // Note: Current backend doesn't provide dependencia breakdown, but we can add it
+
+    setFilteredStats(filtered);
+  };
+
+  // Apply filters when searchFilters change
+  useEffect(() => {
+    if (stats) {
+      applyFilters(stats, searchFilters);
+    }
+  }, [searchFilters, stats]);
+
+  // No renderizar nada si no está autenticado
+  if (!isAuthenticated) {
+    return null;
+  }
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
@@ -246,6 +290,93 @@ export default function DashboardPage() {
       </header>
 
       <div className="max-w-7xl mx-auto p-8">
+        {/* Search Filters */}
+        <div className="mb-8 bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Filtros del Dashboard</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label htmlFor="dashboard-search" className="block text-sm font-medium text-gray-700">
+                Búsqueda General
+              </label>
+              <input
+                type="text"
+                id="dashboard-search"
+                value={searchFilters.search || ''}
+                onChange={(e) => setSearchFilters(prev => ({ ...prev, search: e.target.value }))}
+                placeholder="Buscar por equipo, dependencia..."
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
+              />
+            </div>
+            <div>
+              <label htmlFor="dashboard-dependencia" className="block text-sm font-medium text-gray-700">
+                Dependencia
+              </label>
+              <input
+                type="text"
+                id="dashboard-dependencia"
+                value={searchFilters.equipment_dependencia || ''}
+                onChange={(e) => setSearchFilters(prev => ({ ...prev, equipment_dependencia: e.target.value }))}
+                placeholder="Filtrar por dependencia"
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
+              />
+            </div>
+            <div>
+              <label htmlFor="dashboard-sede" className="block text-sm font-medium text-gray-700">
+                Sede
+              </label>
+              <input
+                type="text"
+                id="dashboard-sede"
+                value={searchFilters.sede || ''}
+                onChange={(e) => setSearchFilters(prev => ({ ...prev, sede: e.target.value }))}
+                placeholder="Filtrar por sede"
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
+              />
+            </div>
+            <div>
+              <label htmlFor="dashboard-status" className="block text-sm font-medium text-gray-700">
+                Estado
+              </label>
+              <select
+                id="dashboard-status"
+                value={searchFilters.status || ''}
+                onChange={(e) => setSearchFilters(prev => ({ ...prev, status: e.target.value }))}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
+              >
+                <option value="">Todos los estados</option>
+                <option value="pending">Pendiente</option>
+                <option value="in_progress">En Progreso</option>
+                <option value="completed">Completado</option>
+                <option value="cancelled">Cancelado</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="dashboard-type" className="block text-sm font-medium text-gray-700">
+                Tipo de Mantenimiento
+              </label>
+              <select
+                id="dashboard-type"
+                value={searchFilters.maintenance_type || ''}
+                onChange={(e) => setSearchFilters(prev => ({ ...prev, maintenance_type: e.target.value }))}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
+              >
+                <option value="">Todos los tipos</option>
+                <option value="preventivo">Preventivo</option>
+                <option value="correctivo">Correctivo</option>
+                <option value="predictivo">Predictivo</option>
+              </select>
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={() => setSearchFilters({})}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Limpiar Filtros
+              </button>
+            </div>
+          </div>
+        </div>
+
         <h2 className="text-3xl font-bold text-gray-900 mb-8">Dashboard de Mantenimientos</h2>
 
         {/* Summary Cards */}
@@ -253,25 +384,25 @@ export default function DashboardPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-gray-500 text-sm font-medium">Total Mantenimientos</h3>
             <p className="text-3xl font-bold text-blue-600 mt-2">
-              {stats.summary.total_maintenances}
+              {filteredStats.summary.total_maintenances}
             </p>
           </div>
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-gray-500 text-sm font-medium">Total Equipos</h3>
             <p className="text-3xl font-bold text-green-600 mt-2">
-              {stats.summary.total_equipments}
+              {filteredStats.summary.total_equipments}
             </p>
           </div>
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-gray-500 text-sm font-medium">Reportes Generados</h3>
             <p className="text-3xl font-bold text-purple-600 mt-2">
-              {stats.summary.total_reports}
+              {filteredStats.summary.total_reports}
             </p>
           </div>
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-gray-500 text-sm font-medium">Incidentes</h3>
             <p className="text-3xl font-bold text-red-600 mt-2">
-              {stats.summary.total_incidents}
+              {filteredStats.summary.total_incidents}
             </p>
           </div>
         </div>
@@ -304,11 +435,11 @@ export default function DashboardPage() {
             <h2 className="text-xl font-bold text-gray-900 mb-4">
               Mantenimientos por Tipo
             </h2>
-            {stats.maintenances_by_type && stats.maintenances_by_type.length > 0 ? (
+            {filteredStats.maintenances_by_type && filteredStats.maintenances_by_type.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
-                    data={stats.maintenances_by_type}
+                    data={filteredStats.maintenances_by_type}
                     dataKey="count"
                     nameKey="maintenance_type"
                     cx="50%"
@@ -316,7 +447,7 @@ export default function DashboardPage() {
                     outerRadius={100}
                     label
                   >
-                    {stats.maintenances_by_type.map((entry, index) => (
+                    {filteredStats.maintenances_by_type.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
@@ -375,26 +506,26 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Top Equipment */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">
-            Top 10 Equipos con Más Mantenimientos
-          </h2>
-          {stats.top_equipment && stats.top_equipment.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={stats.top_equipment}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="placa" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="maintenance_count" fill="#FF8042" name="Mantenimientos" />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-gray-500 text-center py-20">No hay datos disponibles</p>
-          )}
-        </div>
+          {/* Top Equipment */}
+          <div className="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">
+              Top 10 Equipos con Más Mantenimientos
+            </h2>
+            {filteredStats.top_equipment && filteredStats.top_equipment.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={filteredStats.top_equipment}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="placa" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="maintenance_count" fill="#FF8042" name="Mantenimientos" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-gray-500 text-center py-20">No hay datos disponibles</p>
+            )}
+          </div>
 
         {/* Equipment Tables */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">

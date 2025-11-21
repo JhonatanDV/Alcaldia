@@ -12,6 +12,13 @@ export default function Home() {
   const [userRole, setUserRole] = useState<'admin' | 'technician' | null>(null);
   const [selectedEquipment, setSelectedEquipment] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'equipment' | 'gallery' | 'reports'>('equipment');
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+  const [selectedDependencia, setSelectedDependencia] = useState<string>("");
+  const [selectedSede, setSelectedSede] = useState<string>("");
+  const [selectedStatus, setSelectedStatus] = useState<string>("");
+  const [selectedType, setSelectedType] = useState<string>("");
 
   useEffect(() => {
     // Check if user is already logged in
@@ -25,7 +32,13 @@ export default function Home() {
   }, []);
 
   if (!token) {
-    return <LoginForm onLogin={setToken} onRoleSet={setUserRole} />;
+    return <LoginForm onLogin={(newToken) => {
+      setToken(newToken);
+      localStorage.setItem('access_token', newToken);
+    }} onRoleSet={(role) => {
+      setUserRole(role);
+      localStorage.setItem('user_role', role || '');
+    }} />;
   }
 
   return (
@@ -61,6 +74,127 @@ export default function Home() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Search Filters */}
+        {activeTab === 'equipment' && (
+          <div className="mb-8 bg-white p-6 rounded-lg shadow-sm border">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Filtros de Búsqueda</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label htmlFor="search" className="block text-sm font-medium text-gray-700">
+                  Búsqueda General
+                </label>
+                <input
+                  type="text"
+                  id="search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar por nombre, serial, marca..."
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
+                />
+              </div>
+              <div>
+                <label htmlFor="dateFrom" className="block text-sm font-medium text-gray-700">
+                  Fecha Desde
+                </label>
+                <input
+                  type="date"
+                  id="dateFrom"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
+                />
+              </div>
+              <div>
+                <label htmlFor="dateTo" className="block text-sm font-medium text-gray-700">
+                  Fecha Hasta
+                </label>
+                <input
+                  type="date"
+                  id="dateTo"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
+                />
+              </div>
+              <div>
+                <label htmlFor="dependencia" className="block text-sm font-medium text-gray-700">
+                  Dependencia
+                </label>
+                <input
+                  type="text"
+                  id="dependencia"
+                  value={selectedDependencia}
+                  onChange={(e) => setSelectedDependencia(e.target.value)}
+                  placeholder="Filtrar por dependencia"
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
+                />
+              </div>
+              <div>
+                <label htmlFor="sede" className="block text-sm font-medium text-gray-700">
+                  Sede
+                </label>
+                <input
+                  type="text"
+                  id="sede"
+                  value={selectedSede}
+                  onChange={(e) => setSelectedSede(e.target.value)}
+                  placeholder="Filtrar por sede"
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
+                />
+              </div>
+              <div>
+                <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+                  Estado
+                </label>
+                <select
+                  id="status"
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
+                >
+                  <option value="">Todos los estados</option>
+                  <option value="pending">Pendiente</option>
+                  <option value="in_progress">En Progreso</option>
+                  <option value="completed">Completado</option>
+                  <option value="cancelled">Cancelado</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="type" className="block text-sm font-medium text-gray-700">
+                  Tipo de Mantenimiento
+                </label>
+                <select
+                  id="type"
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value)}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
+                >
+                  <option value="">Todos los tipos</option>
+                  <option value="preventivo">Preventivo</option>
+                  <option value="correctivo">Correctivo</option>
+                  <option value="predictivo">Predictivo</option>
+                </select>
+              </div>
+              <div className="flex items-end">
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setDateFrom("");
+                    setDateTo("");
+                    setSelectedDependencia("");
+                    setSelectedSede("");
+                    setSelectedStatus("");
+                    setSelectedType("");
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  Limpiar Filtros
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Tabs and Actions */}
         <div className="mb-8 flex justify-between items-center">
           <nav className="flex space-x-8" aria-label="Tabs">
@@ -150,6 +284,15 @@ export default function Home() {
                 onSelectEquipment={setSelectedEquipment}
                 selectedEquipment={selectedEquipment}
                 userRole={userRole}
+                searchFilters={{
+                  search: searchQuery,
+                  scheduled_date_from: dateFrom,
+                  scheduled_date_to: dateTo,
+                  equipment_dependencia: selectedDependencia,
+                  sede: selectedSede,
+                  status: selectedStatus,
+                  maintenance_type: selectedType,
+                }}
               />
             </div>
             <div>

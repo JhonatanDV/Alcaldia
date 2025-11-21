@@ -3,8 +3,7 @@ from django.contrib.auth.models import User, Group
 from .models import (
     Equipment, 
     Maintenance, 
-    Incident, 
-    MaintenanceReport,
+    Incident,
     Photo,
     Signature,
     SecondSignature,
@@ -126,11 +125,15 @@ class EquipmentSerializer(serializers.ModelSerializer):
 
 
 class MaintenanceSerializer(serializers.ModelSerializer):
-    equipo_placa = serializers.CharField(source='equipo.placa', read_only=True)
-    equipo_tipo = serializers.CharField(source='equipo.tipo', read_only=True)
+    equipo_placa = serializers.CharField(source='equipment.code', read_only=True)
+    equipo_tipo = serializers.CharField(source='equipment.name', read_only=True)
     tecnico_nombre = serializers.SerializerMethodField()
     photos = PhotoSerializer(many=True, read_only=True)
     signatures = SignatureSerializer(many=True, read_only=True)
+    equipment = serializers.PrimaryKeyRelatedField(
+        queryset=Equipment.objects.all(),
+        required=True
+    )
 
     class Meta:
         model = Maintenance
@@ -143,13 +146,48 @@ class MaintenanceSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         request = self.context.get('request')
+        
+        # Extract and validate activities
+        activities = validated_data.get('activities', {})
+        if isinstance(activities, str):
+            import json
+            try:
+                activities = json.loads(activities)
+            except:
+                activities = {}
+        validated_data['activities'] = activities
+        
         maintenance = Maintenance.objects.create(**validated_data)
 
         # Handle photos if present
         if request and hasattr(request, 'FILES'):
             photos = request.FILES.getlist('photos')
             for photo in photos:
-                Photo.objects.create(maintenance=maintenance, photo=photo, uploaded_by=request.user if request else None)
+                Photo.objects.create(
+                    maintenance=maintenance, 
+                    photo=photo, 
+                    uploaded_by=request.user if request else None
+                )
+            
+            # Handle signature
+            signature = request.FILES.get('signature')
+            if signature:
+                Signature.objects.create(
+                    maintenance=maintenance,
+                    signature_image=signature,
+                    signer_name=maintenance.performed_by or 'Técnico',
+                    signer_role='Técnico'
+                )
+            
+            # Handle second signature
+            second_signature = request.FILES.get('second_signature')
+            if second_signature:
+                SecondSignature.objects.create(
+                    maintenance=maintenance,
+                    signature_image=second_signature,
+                    signer_name='Usuario',
+                    signer_role='Usuario del equipo'
+                )
 
         return maintenance
 
@@ -172,18 +210,4 @@ class IncidentSerializer(serializers.ModelSerializer):
     def get_asignado_a_nombre(self, obj):
         if obj.asignado_a:
             return f"{obj.asignado_a.first_name} {obj.asignado_a.last_name}".strip() or obj.asignado_a.username
-        return None
-
-
-class MaintenanceReportSerializer(serializers.ModelSerializer):
-    maintenance_details = MaintenanceSerializer(source='maintenance', read_only=True)
-    generated_by_name = serializers.SerializerMethodField()
-
-    class Meta:
-        model = MaintenanceReport
-        fields = '__all__'
-
-    def get_generated_by_name(self, obj):
-        if obj.generated_by:
-            return f"{obj.generated_by.first_name} {obj.generated_by.last_name}".strip() or obj.generated_by.username
         return None

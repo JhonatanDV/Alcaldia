@@ -2,13 +2,11 @@ from django.contrib import admin
 from .models import (
     Equipment,
     Maintenance,
-    MaintenanceTask,
     Photo,
     Signature,
     SecondSignature,
     Report,
     Incident,
-    MaintenanceReport,
     AuditLog,
     ReportTemplate,
 )
@@ -29,15 +27,6 @@ class MaintenanceAdmin(admin.ModelAdmin):
     search_fields = ['equipment__name', 'description', 'codigo']
     date_hierarchy = 'scheduled_date'
     raw_id_fields = ['equipment', 'technician']
-
-
-@admin.register(MaintenanceTask)
-class MaintenanceTaskAdmin(admin.ModelAdmin):
-    list_display = ['maintenance', 'task_description', 'is_completed', 'completed_by', 'order']
-    list_filter = ['is_completed', 'completed_at']
-    search_fields = ['task_description', 'notes']
-    raw_id_fields = ['maintenance', 'completed_by']
-    ordering = ['maintenance', 'order']
 
 
 @admin.register(Photo)
@@ -83,15 +72,6 @@ class IncidentAdmin(admin.ModelAdmin):
     search_fields = ['equipment__name', 'description']
     date_hierarchy = 'incident_date'
     raw_id_fields = ['equipment', 'maintenance', 'reported_by']
-
-
-@admin.register(MaintenanceReport)
-class MaintenanceReportAdmin(admin.ModelAdmin):
-    list_display = ['maintenance', 'report_type', 'generated_by', 'generated_at', 'file_size']
-    list_filter = ['report_type', 'generated_at']
-    search_fields = ['maintenance__equipment__name']
-    raw_id_fields = ['maintenance', 'generated_by']
-    date_hierarchy = 'generated_at'
 
 
 @admin.register(AuditLog)

@@ -59,15 +59,27 @@ class MaintenanceViewSet(viewsets.ModelViewSet):
         return super().get_permissions()
 
     def create(self, request, *args, **kwargs):
+        # Log incoming data for debugging
+        print("Request data:", request.data)
+        print("Request files:", request.FILES)
+        
         serializer = self.get_serializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        maintenance = serializer.save()
-        maintenance._audit_user = request.user
+        
+        try:
+            maintenance = serializer.save()
+            maintenance._audit_user = request.user
 
-        # Return the full maintenance data with photos and signatures
-        serializer = self.get_serializer(maintenance)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+            # Return the full maintenance data with photos and signatures
+            serializer = self.get_serializer(maintenance)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        except Exception as e:
+            print(f"Error creating maintenance: {str(e)}")
+            return Response(
+                {'error': str(e), 'detail': 'Error al crear el mantenimiento'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
     @action(detail=True, methods=['get'])
     def photos(self, request, pk=None):

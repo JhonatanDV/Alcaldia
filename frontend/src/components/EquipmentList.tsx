@@ -57,6 +57,17 @@ export default function EquipmentList({
   });
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState("");
+  
+  // Add searchFilters state
+  const [searchFilters, setSearchFilters] = useState<{
+    search?: string;
+    scheduled_date_from?: string;
+    scheduled_date_to?: string;
+    equipment_dependencia?: string;
+    sede?: string;
+    status?: string;
+    maintenance_type?: string;
+  }>({});
 
   useEffect(() => {
     fetchEquipments();
@@ -76,27 +87,41 @@ export default function EquipmentList({
   const fetchEquipments = async () => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      
-      // Fetch all equipments handling pagination
-      let allEquipments: Equipment[] = [];
-      let nextUrl: string | null = "http://127.0.0.1:8000/api/equipments/?page_size=1000";
-      
-      while (nextUrl) {
-        const response: any = await axios.get(nextUrl, { headers });
-        
-        // Check if response is paginated or direct array
-        if (response.data.results) {
-          allEquipments = [...allEquipments, ...response.data.results];
-          nextUrl = response.data.next;
-        } else if (Array.isArray(response.data)) {
-          allEquipments = response.data;
-          nextUrl = null;
-        } else {
-          throw new Error('Formato de respuesta inesperado');
+
+      // Build query parameters from search filters
+      const params = new URLSearchParams();
+      if (searchFilters?.search) params.append('search', searchFilters.search);
+      if (searchFilters?.scheduled_date_from) params.append('scheduled_date_from', searchFilters.scheduled_date_from);
+      if (searchFilters?.scheduled_date_to) params.append('scheduled_date_to', searchFilters.scheduled_date_to);
+      if (searchFilters?.equipment_dependencia) params.append('equipment_dependencia', searchFilters.equipment_dependencia);
+      if (searchFilters?.sede) params.append('sede', searchFilters.sede);
+      if (searchFilters?.status) params.append('status', searchFilters.status);
+      if (searchFilters?.maintenance_type) params.append('maintenance_type', searchFilters.maintenance_type);
+      params.append('page_size', '1000');
+
+      const queryString = params.toString();
+      const url = `http://127.0.0.1:8000/api/maintenances/?${queryString}`;
+
+      const response: any = await axios.get(url, { headers });
+
+      // Get unique equipments from maintenances
+      const equipmentMap = new Map<number, Equipment>();
+      response.data.results.forEach((maintenance: any) => {
+        if (maintenance.equipment && !equipmentMap.has(maintenance.equipment.id)) {
+          equipmentMap.set(maintenance.equipment.id, {
+            ...maintenance.equipment,
+            maintenances: [maintenance] // Add this maintenance
+          });
+        } else if (maintenance.equipment) {
+          // Add to existing equipment's maintenances
+          const existing = equipmentMap.get(maintenance.equipment.id);
+          if (existing) {
+            existing.maintenances.push(maintenance);
+          }
         }
-      }
-      
-      setEquipments(allEquipments);
+      });
+
+      setEquipments(Array.from(equipmentMap.values()));
     } catch (err) {
       setError("Error al cargar equipos");
     } finally {

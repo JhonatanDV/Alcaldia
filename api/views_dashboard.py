@@ -27,7 +27,7 @@ class DashboardStatsView(APIView):
         # Estadísticas generales
         total_maintenances = Maintenance.objects.count()
         total_equipment = Equipment.objects.count()
-        total_reports = Maintenance.objects.filter(reports__isnull=False).distinct().count()
+        total_reports = Maintenance.objects.filter(custom_reports__isnull=False).distinct().count()
         total_incidents = Incident.objects.count()
         
         # Mantenimientos por estado

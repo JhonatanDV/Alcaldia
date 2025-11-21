@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.utils import timezone
 
 
 class Equipment(models.Model):
@@ -88,25 +89,6 @@ class Maintenance(models.Model):
         return f"{self.equipment.name} - {self.get_maintenance_type_display()} - {self.scheduled_date}"
 
 
-class MaintenanceTask(models.Model):
-    maintenance = models.ForeignKey(Maintenance, on_delete=models.CASCADE, related_name='tasks')
-    task_description = models.TextField()
-    is_completed = models.BooleanField(default=False)
-    completed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    completed_at = models.DateTimeField(null=True, blank=True)
-    notes = models.TextField(blank=True, default='')
-    order = models.IntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = 'maintenance_task'
-        ordering = ['order', 'created_at']
-
-    def __str__(self):
-        return f"Task for {self.maintenance} - {self.task_description[:50]}"
-
-
 class Photo(models.Model):
     maintenance = models.ForeignKey(Maintenance, on_delete=models.CASCADE, related_name='photos')
     photo = models.ImageField(upload_to='maintenance_photos/')
@@ -120,22 +102,6 @@ class Photo(models.Model):
 
     def __str__(self):
         return f"Photo for {self.maintenance} - {self.caption or 'No caption'}"
-
-
-class MaintenanceReport(models.Model):
-    maintenance = models.ForeignKey(Maintenance, on_delete=models.CASCADE, related_name='reports')
-    report_file = models.FileField(upload_to='maintenance_reports/')
-    generated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    generated_at = models.DateTimeField(auto_now_add=True)
-    report_type = models.CharField(max_length=50, default='standard')
-    file_size = models.IntegerField(null=True, blank=True)
-
-    class Meta:
-        db_table = 'maintenance_report'
-        ordering = ['-generated_at']
-
-    def __str__(self):
-        return f"Report for {self.maintenance} - {self.generated_at}"
 
 
 class AuditLog(models.Model):
@@ -175,9 +141,9 @@ class ReportTemplate(models.Model):
 
 
 class Report(models.Model):
-    maintenance = models.ForeignKey(Maintenance, on_delete=models.CASCADE, related_name='custom_reports')
-    title = models.CharField(max_length=255)
-    content = models.TextField()
+    maintenance = models.ForeignKey(Maintenance, on_delete=models.CASCADE, related_name='custom_reports', null=True, blank=True)
+    title = models.CharField(max_length=255, default='Reporte sin título')
+    content = models.TextField(default='')
     pdf_file = models.FileField(upload_to='reports/', null=True, blank=True)
     generated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     generated_at = models.DateTimeField(auto_now_add=True)
@@ -191,11 +157,11 @@ class Report(models.Model):
 
 
 class Signature(models.Model):
-    maintenance = models.ForeignKey(Maintenance, on_delete=models.CASCADE, related_name='signatures')
+    maintenance = models.ForeignKey(Maintenance, on_delete=models.CASCADE, related_name='signatures', null=True, blank=True)
     equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, null=True, blank=True)
-    signer_name = models.CharField(max_length=255)
-    signer_role = models.CharField(max_length=100)
-    signature_image = models.ImageField(upload_to='signatures/')
+    signer_name = models.CharField(max_length=255, default='Sin nombre')
+    signer_role = models.CharField(max_length=100, default='Técnico')
+    signature_image = models.ImageField(upload_to='signatures/', null=True, blank=True)
     thumbnail = models.ImageField(upload_to='signatures/thumbnails/', null=True, blank=True)
     signed_at = models.DateTimeField(auto_now_add=True)
 
@@ -208,10 +174,10 @@ class Signature(models.Model):
 
 
 class SecondSignature(models.Model):
-    maintenance = models.ForeignKey(Maintenance, on_delete=models.CASCADE, related_name='second_signatures')
-    signer_name = models.CharField(max_length=255)
-    signer_role = models.CharField(max_length=100)
-    signature_image = models.ImageField(upload_to='signatures/second/')
+    maintenance = models.ForeignKey(Maintenance, on_delete=models.CASCADE, related_name='second_signatures', null=True, blank=True)
+    signer_name = models.CharField(max_length=255, default='Sin nombre')
+    signer_role = models.CharField(max_length=100, default='Usuario')
+    signature_image = models.ImageField(upload_to='signatures/second/', null=True, blank=True)
     thumbnail = models.ImageField(upload_to='signatures/second/thumbnails/', null=True, blank=True)
     signed_at = models.DateTimeField(auto_now_add=True)
 
@@ -224,17 +190,17 @@ class SecondSignature(models.Model):
 
 
 class Incident(models.Model):
-    equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, related_name='incidents', db_column='equipment_id')
+    equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, related_name='incidents', db_column='equipment_id', null=True, blank=True)
     maintenance = models.ForeignKey(Maintenance, on_delete=models.SET_NULL, null=True, blank=True, related_name='incidents')
     reported_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reported_incidents')
-    incident_date = models.DateTimeField()
+    incident_date = models.DateTimeField(default=timezone.now)
     severity = models.CharField(max_length=20, choices=[
         ('low', 'Baja'),
         ('medium', 'Media'),
         ('high', 'Alta'),
         ('critical', 'Crítica'),
     ], default='medium')
-    description = models.TextField()
+    description = models.TextField(default='')
     resolution = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=[
         ('open', 'Abierto'),

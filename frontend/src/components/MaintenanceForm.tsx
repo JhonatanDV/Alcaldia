@@ -110,15 +110,15 @@ export default function MaintenanceForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError("");
 
     try {
       const formDataToSend = new FormData();
+      
+      // Asegurar que equipment se envíe correctamente
       formDataToSend.append("equipment", equipmentId.toString());
-      formDataToSend.append("maintenance_type", "preventivo");
-      formDataToSend.append("equipment_type", formData.equipment_type);
-      formDataToSend.append("scheduled_date", formData.maintenance_date);
+      formDataToSend.append("maintenance_type", formData.maintenance_type);
       formDataToSend.append("description", formData.description);
+      formDataToSend.append("maintenance_date", formData.maintenance_date);
       formDataToSend.append("performed_by", formData.performed_by);
       formDataToSend.append("sede", formData.sede);
       formDataToSend.append("dependencia", formData.dependencia);
@@ -126,6 +126,8 @@ export default function MaintenanceForm({
       formDataToSend.append("placa", formData.placa);
       formDataToSend.append("hora_inicio", formData.hora_inicio);
       formDataToSend.append("hora_final", formData.hora_final);
+      
+      // Enviar activities como JSON string
       formDataToSend.append("activities", JSON.stringify(formData.activities));
       formDataToSend.append("observaciones_generales", formData.observaciones_generales);
       formDataToSend.append("observaciones_seguridad", formData.observaciones_seguridad);
