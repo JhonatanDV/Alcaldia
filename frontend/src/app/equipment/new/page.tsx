@@ -79,15 +79,15 @@ export default function NewEquipmentPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header Navigation */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-gray-900">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-3 sm:py-4 gap-3 sm:gap-0">
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
                 Sistema de Mantenimiento
               </h1>
               {userRole && (
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                   userRole === 'admin'
                     ? 'bg-red-100 text-red-800'
                     : 'bg-blue-100 text-blue-800'
@@ -96,41 +96,41 @@ export default function NewEquipmentPage() {
                 </span>
               )}
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
               <a
                 href="/dashboard"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 flex-1 sm:flex-initial"
               >
                 Dashboard
               </a>
               <a
                 href="/maintenance/new"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
+                className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-green-600 hover:bg-green-700 flex-1 sm:flex-initial whitespace-nowrap"
               >
-                Nuevo Mantenimiento
+                Nuevo Mant.
               </a>
               {userRole === 'admin' && (
                 <a
                   href="/admin/users"
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
+                  className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
                 >
                   Usuarios
                 </a>
               )}
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
+                className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
               >
-                Cerrar Sesión
+                Salir
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto p-8">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Agregar Nuevo Equipo</h2>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 lg:p-8">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Agregar Nuevo Equipo</h2>
 
           {error && (
             <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
@@ -144,28 +144,50 @@ export default function NewEquipmentPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-2">
-                Código del Equipo <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                id="code"
-                name="code"
-                required
-                value={formData.code}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Ej: EQ-001"
-              />
-              <p className="mt-1 text-sm text-gray-500">
-                Ingrese un código único para identificar el equipo
-              </p>
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+            {/* Grid para campos en 2 columnas en pantallas medianas y grandes */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              <div>
+                <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                  Código del Equipo <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="code"
+                  name="code"
+                  required
+                  value={formData.code}
+                  onChange={handleInputChange}
+                  className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Ej: EQ-001"
+                />
+                <p className="mt-1 text-xs sm:text-sm text-gray-500">
+                  Código único del equipo
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="serial_number" className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                  Número de Serie <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="serial_number"
+                  name="serial_number"
+                  required
+                  value={formData.serial_number}
+                  onChange={handleInputChange}
+                  className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Ej: SN123456789"
+                />
+                <p className="mt-1 text-xs sm:text-sm text-gray-500">
+                  Número de serie del fabricante
+                </p>
+              </div>
             </div>
 
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                 Nombre del Equipo <span className="text-red-500">*</span>
               </label>
               <input
@@ -175,118 +197,103 @@ export default function NewEquipmentPage() {
                 required
                 value={formData.name}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 placeholder="Ej: Computador de escritorio HP"
               />
-              <p className="mt-1 text-sm text-gray-500">
-                Ingrese el nombre o descripción del equipo
+              <p className="mt-1 text-xs sm:text-sm text-gray-500">
+                Nombre o descripción del equipo
               </p>
             </div>
 
-            <div>
-              <label htmlFor="serial_number" className="block text-sm font-medium text-gray-700 mb-2">
-                Número de Serie <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                id="serial_number"
-                name="serial_number"
-                required
-                value={formData.serial_number}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Ej: SN123456789"
-              />
-              <p className="mt-1 text-sm text-gray-500">
-                Ingrese el número de serie del equipo
-              </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              <div>
+                <label htmlFor="brand" className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                  Marca <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="brand"
+                  name="brand"
+                  required
+                  value={formData.brand}
+                  onChange={handleInputChange}
+                  className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Ej: HP, Dell, Lenovo"
+                />
+                <p className="mt-1 text-xs sm:text-sm text-gray-500">
+                  Marca del equipo
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="model" className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                  Modelo <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="model"
+                  name="model"
+                  required
+                  value={formData.model}
+                  onChange={handleInputChange}
+                  className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Ej: Pavilion 15, Latitude 5420"
+                />
+                <p className="mt-1 text-xs sm:text-sm text-gray-500">
+                  Modelo específico
+                </p>
+              </div>
             </div>
 
-            <div>
-              <label htmlFor="brand" className="block text-sm font-medium text-gray-700 mb-2">
-                Marca <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                id="brand"
-                name="brand"
-                required
-                value={formData.brand}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Ej: HP, Dell, Lenovo"
-              />
-              <p className="mt-1 text-sm text-gray-500">
-                Ingrese la marca del equipo
-              </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              <div>
+                <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                  Ubicación
+                </label>
+                <input
+                  type="text"
+                  id="location"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleInputChange}
+                  className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Ej: Oficina principal, piso 2"
+                />
+                <p className="mt-1 text-xs sm:text-sm text-gray-500">
+                  Ubicación física (opcional)
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="dependencia" className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                  Dependencia
+                </label>
+                <input
+                  type="text"
+                  id="dependencia"
+                  name="dependencia"
+                  value={formData.dependencia}
+                  onChange={handleInputChange}
+                  className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Ej: Sistemas, Contabilidad"
+                />
+                <p className="mt-1 text-xs sm:text-sm text-gray-500">
+                  Área o departamento (opcional)
+                </p>
+              </div>
             </div>
 
-            <div>
-              <label htmlFor="model" className="block text-sm font-medium text-gray-700 mb-2">
-                Modelo <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                id="model"
-                name="model"
-                required
-                value={formData.model}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Ej: Pavilion 15, Latitude 5420"
-              />
-              <p className="mt-1 text-sm text-gray-500">
-                Ingrese el modelo del equipo
-              </p>
-            </div>
-
-            <div>
-              <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
-                Ubicación
-              </label>
-              <input
-                type="text"
-                id="location"
-                name="location"
-                value={formData.location}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Ej: Oficina principal, piso 2"
-              />
-              <p className="mt-1 text-sm text-gray-500">
-                Ingrese la ubicación física del equipo (opcional)
-              </p>
-            </div>
-
-            <div>
-              <label htmlFor="dependencia" className="block text-sm font-medium text-gray-700 mb-2">
-                Dependencia
-              </label>
-              <input
-                type="text"
-                id="dependencia"
-                name="dependencia"
-                value={formData.dependencia}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Ej: Sistemas, Contabilidad, Recursos Humanos"
-              />
-              <p className="mt-1 text-sm text-gray-500">
-                Ingrese la dependencia a la que pertenece el equipo (opcional)
-              </p>
-            </div>
-
-            <div className="flex items-center justify-end space-x-4 pt-6 border-t">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 sm:gap-4 pt-4 sm:pt-6 border-t">
               <a
                 href="/dashboard"
-                className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base text-center border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 Cancelar
               </a>
               <button
                 type="submit"
                 disabled={loading}
-                className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
               >
                 {loading ? 'Guardando...' : 'Guardar Equipo'}
               </button>
@@ -294,13 +301,13 @@ export default function NewEquipmentPage() {
           </form>
         </div>
 
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="mt-4 sm:mt-6 bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
           <h3 className="text-sm font-semibold text-blue-900 mb-2">💡 Información</h3>
-          <ul className="text-sm text-blue-800 space-y-1">
-            <li>• El código del equipo y número de serie deben ser únicos en el sistema</li>
-            <li>• Una vez creado el equipo, podrá registrar mantenimientos para él</li>
-            <li>• Los campos marcados con <span className="text-red-500">*</span> son obligatorios</li>
-            <li>• La marca y modelo se registrarán automáticamente en cada mantenimiento</li>
+          <ul className="text-xs sm:text-sm text-blue-800 space-y-1">
+            <li>• El código y número de serie deben ser únicos</li>
+            <li>• Una vez creado, podrá registrar mantenimientos</li>
+            <li>• Los campos con <span className="text-red-500">*</span> son obligatorios</li>
+            <li>• La marca y modelo se registrarán automáticamente</li>
           </ul>
         </div>
       </div>

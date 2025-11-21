@@ -109,15 +109,15 @@ export default function NewMaintenancePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header Navigation */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-gray-900">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-3 sm:py-4 gap-3 sm:gap-0">
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
                 Sistema de Mantenimiento
               </h1>
               {userRole && (
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                   userRole === 'admin'
                     ? 'bg-red-100 text-red-800'
                     : 'bg-blue-100 text-blue-800'
@@ -126,17 +126,17 @@ export default function NewMaintenancePage() {
                 </span>
               )}
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
               <a
                 href="/dashboard"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 flex-1 sm:flex-initial"
               >
                 Dashboard
               </a>
               {userRole === 'admin' && (
                 <a
                   href="/equipment/new"
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+                  className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
                 >
                   <svg
                     className="mr-2 h-4 w-4"
@@ -158,27 +158,27 @@ export default function NewMaintenancePage() {
               {userRole === 'admin' && (
                 <a
                   href="/admin/users"
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
+                  className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
                 >
                   Usuarios
                 </a>
               )}
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
+                className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
               >
-                Cerrar Sesión
+                Salir
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto p-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-8">Nuevo Mantenimiento</h2>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+        <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-4 sm:mb-6 lg:mb-8">Nuevo Mantenimiento</h2>
 
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h3 className="text-xl font-semibold mb-4">Seleccionar Equipo</h3>
+        <div className="bg-white rounded-lg shadow-sm border p-4 sm:p-6 mb-4 sm:mb-6">
+          <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Seleccionar Equipo</h3>
           <select
             value={selectedEquipment?.id || ''}
             onChange={(e) => {
@@ -188,7 +188,7 @@ export default function NewMaintenancePage() {
                 : null;
               setSelectedEquipment(equipment);
             }}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-black"
+            className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-black"
           >
             <option value="">Seleccione un equipo...</option>
             {equipments.map((equipment) => (
@@ -200,20 +200,20 @@ export default function NewMaintenancePage() {
         </div>
 
         {selectedEquipment && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Información del Equipo Seleccionado</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+          <div className="bg-white rounded-lg shadow-sm border p-4 sm:p-6">
+            <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Información del Equipo Seleccionado</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6 p-3 sm:p-4 bg-gray-50 rounded-lg">
               <div>
-                <p className="text-sm font-medium text-gray-500">Código/Placa</p>
-                <p className="text-lg text-gray-900">{selectedEquipment.code}</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-500">Código/Placa</p>
+                <p className="text-sm sm:text-base lg:text-lg text-gray-900 truncate">{selectedEquipment.code}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Nombre/Tipo</p>
-                <p className="text-lg text-gray-900">{selectedEquipment.name}</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-500">Nombre/Tipo</p>
+                <p className="text-sm sm:text-base lg:text-lg text-gray-900 truncate">{selectedEquipment.name}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Ubicación</p>
-                <p className="text-lg text-gray-900">{selectedEquipment.location || 'No especificada'}</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-500">Ubicación</p>
+                <p className="text-sm sm:text-base lg:text-lg text-gray-900 truncate">{selectedEquipment.location || 'No especificada'}</p>
               </div>
             </div>
 
