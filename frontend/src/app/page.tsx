@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import EquipmentList from "@/components/EquipmentList";
 import MaintenanceForm from "@/components/MaintenanceForm";
 import PhotoGallery from "@/components/PhotoGallery";
@@ -12,6 +12,17 @@ export default function Home() {
   const [userRole, setUserRole] = useState<'admin' | 'technician' | null>(null);
   const [selectedEquipment, setSelectedEquipment] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'equipment' | 'gallery' | 'reports'>('equipment');
+
+  useEffect(() => {
+    // Check if user is already logged in
+    const storedToken = localStorage.getItem('access_token');
+    const storedRole = localStorage.getItem('user_role') as 'admin' | 'technician' | null;
+    
+    if (storedToken) {
+      // Redirect to dashboard if already authenticated
+      window.location.href = '/dashboard';
+    }
+  }, []);
 
   if (!token) {
     return <LoginForm onLogin={setToken} onRoleSet={setUserRole} />;
@@ -50,8 +61,8 @@ export default function Home() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tabs */}
-        <div className="mb-8">
+        {/* Tabs and Actions */}
+        <div className="mb-8 flex justify-between items-center">
           <nav className="flex space-x-8" aria-label="Tabs">
             <button
               onClick={() => setActiveTab('equipment')}
@@ -84,6 +95,51 @@ export default function Home() {
               Descargar Reportes
             </button>
           </nav>
+
+          <div className="flex gap-2">
+            <a
+              href="/maintenance/new"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            >
+              <svg
+                className="mr-2 h-4 w-4"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              Nuevo Mantenimiento
+            </a>
+            {userRole === 'admin' && (
+              <>
+                <a
+                  href="/dashboard"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Dashboard
+                </a>
+                <a
+                  href="/admin/users"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                >
+                  Usuarios
+                </a>
+              </>
+            )}
+          </div>
         </div>
 
         {activeTab === 'equipment' && (

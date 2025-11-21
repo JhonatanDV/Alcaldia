@@ -25,18 +25,28 @@ export default function LoginForm({ onLogin, onRoleSet }: LoginFormProps) {
         password,
       });
 
-      const { access } = response.data;
+      const { access, refresh } = response.data;
+
+      // Save tokens to localStorage
+      localStorage.setItem('access_token', access);
+      localStorage.setItem('refresh_token', refresh);
 
       // Get user info to determine role
       const userResponse = await axios.get("http://127.0.0.1:8000/api/user-info/", {
         headers: { Authorization: `Bearer ${access}` },
       });
 
-      const isAdmin = userResponse.data.groups.includes('Admin');
+      const isAdmin = userResponse.data.is_staff;
       const role = isAdmin ? 'admin' : 'technician';
+
+      // Save user role to localStorage
+      localStorage.setItem('user_role', role);
 
       onLogin(access);
       onRoleSet(role);
+
+      // Redirect to dashboard
+      window.location.href = '/dashboard';
     } catch (err) {
       setError("Credenciales inválidas");
     } finally {

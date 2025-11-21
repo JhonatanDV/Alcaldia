@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+
 interface Report {
   id: number;
   equipment: {
@@ -44,6 +46,8 @@ export default function ReportDownloader({ token, userRole }: ReportDownloaderPr
   const [equipments, setEquipments] = useState<{id: number, code: string, name: string}[]>([]);
   const [sections, setSections] = useState<string[]>([]);
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [selectedReports, setSelectedReports] = useState<number[]>([]);
+  const [packageLoading, setPackageLoading] = useState(false);
 
   // Restrict access to admin users only
   if (userRole !== 'admin') {
@@ -133,6 +137,72 @@ export default function ReportDownloader({ token, userRole }: ReportDownloaderPr
       window.open(report.file_url, '_blank');
     } catch (err) {
       setError("Error al abrir el reporte");
+    }
+  };
+
+  const toggleSelectReport = (reportId: number) => {
+    setSelectedReports((prev) =>
+      prev.includes(reportId)
+        ? prev.filter((id) => id !== reportId)
+        : [...prev, reportId]
+    );
+  };
+
+  const selectAllReports = () => {
+    const filteredReports = reports.filter((report) => {
+      const matchesEquipment = !selectedEquipment || String(report.equipment.id) === selectedEquipment;
+      const matchesDate = !selectedDate || (report.report_data?.start_date && report.report_data.start_date === selectedDate);
+      const matchesSection = !selectedSection || (
+        report.maintenance?.sede === selectedSection ||
+        report.maintenance?.dependencia === selectedSection ||
+        report.maintenance?.oficina === selectedSection
+      );
+      const matchesType = !selectedType || report.maintenance?.maintenance_type === selectedType;
+      return matchesEquipment && matchesDate && matchesSection && matchesType;
+    });
+    setSelectedReports(filteredReports.map((r) => r.id));
+  };
+
+  const clearSelection = () => {
+    setSelectedReports([]);
+  };
+
+  const downloadPackage = async () => {
+    if (selectedReports.length === 0) {
+      setError("Selecciona al menos un reporte para empaquetar");
+      return;
+    }
+
+    setPackageLoading(true);
+    setError("");
+
+    try {
+      const response = await axios.post(
+        `${API_URL}/api/reports/package/`,
+        {
+          report_ids: selectedReports,
+          filename: `reportes_${new Date().toISOString().split('T')[0]}.zip`,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: 'blob',
+        }
+      );
+
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `reportes_${new Date().toISOString().split('T')[0]}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      clearSelection();
+    } catch (err: any) {
+      setError(err.response?.data?.detail || "Error al empaquetar reportes");
+    } finally {
+      setPackageLoading(false);
     }
   };
 
@@ -267,14 +337,31 @@ export default function ReportDownloader({ token, userRole }: ReportDownloaderPr
             </div>
           </div>
 
-          {/* Lista filtrada de reportes */}
+          {/* Lista filtrada de reportes con checkboxes */}
           <div className="space-y-2">
-            <select
-              value={selectedReport || ""}
-              onChange={(e) => setSelectedReport(e.target.value ? parseInt(e.target.value) : null)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="">Seleccionar reporte...</option>
+            {/* Botones de selección */}
+            <div className="flex justify-between items-center mb-2">
+              <div className="flex gap-2">
+                <button
+                  onClick={selectAllReports}
+                  className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50"
+                >
+                  Seleccionar Todos
+                </button>
+                <button
+                  onClick={clearSelection}
+                  className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50"
+                >
+                  Limpiar Selección
+                </button>
+              </div>
+              <span className="text-sm text-gray-600">
+                {selectedReports.length} seleccionado(s)
+              </span>
+            </div>
+
+            {/* Lista de reportes con checkboxes */}
+            <div className="max-h-64 overflow-y-auto border border-gray-300 rounded-md p-2 space-y-1">
               {reports
                 .filter((report) => {
                   const matchesEquipment = !selectedEquipment || String(report.equipment.id) === selectedEquipment;
@@ -288,20 +375,40 @@ export default function ReportDownloader({ token, userRole }: ReportDownloaderPr
                   return matchesEquipment && matchesDate && matchesSection && matchesType;
                 })
                 .map((report) => (
-                  <option key={report.id} value={report.id}>
-                    {report.equipment.code} - {report.equipment.name} ({report.maintenance?.maintenance_type === 'computer' ? 'Cómputo' : 'Impresora/Escáner'}) - {report.maintenance?.oficina || report.maintenance?.dependencia || report.maintenance?.sede || 'Sin sección'} ({report.report_data?.start_date || new Date(report.created_at).toLocaleDateString()})
-                  </option>
+                  <label
+                    key={report.id}
+                    className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedReports.includes(report.id)}
+                      onChange={() => toggleSelectReport(report.id)}
+                      className="mr-3 h-4 w-4"
+                    />
+                    <span className="text-sm">
+                      {report.equipment.code} - {report.equipment.name} ({report.maintenance?.maintenance_type === 'computer' ? 'Cómputo' : 'Impresora/Escáner'}) - {report.maintenance?.oficina || report.maintenance?.dependencia || report.maintenance?.sede || 'Sin sección'} ({report.report_data?.start_date || new Date(report.created_at).toLocaleDateString()})
+                    </span>
+                  </label>
                 ))}
-            </select>
+            </div>
 
-            {selectedReport && (
+            {/* Botones de acción */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4">
               <button
-                onClick={() => downloadReport(selectedReport)}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                onClick={() => selectedReport && downloadReport(selectedReport)}
+                disabled={!selectedReport}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
               >
-                Descargar Reporte
+                Ver Reporte Individual
               </button>
-            )}
+              <button
+                onClick={downloadPackage}
+                disabled={packageLoading || selectedReports.length === 0}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
+              >
+                {packageLoading ? "Empaquetando..." : `Descargar ZIP (${selectedReports.length})`}
+              </button>
+            </div>
           </div>
         </div>
       )}
