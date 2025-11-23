@@ -19,6 +19,10 @@ export default function SettingsPage() {
     auto_backup_enabled: false,
     maintenance_reminder_days: 30,
   });
+  const [userSettings, setUserSettings] = useState({
+    allow_user_registration: false,
+    default_role: 'technician',
+  });
 
   // onLogout function for Sidebar logout button
   const onLogout = () => {
@@ -144,10 +148,120 @@ export default function SettingsPage() {
                       d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" 
                     />
                   </svg>
-                  Ir a Gestión de Usuarios
+                  Usuarios
                 </button>
               </nav>
             </div>
+          </div>
+
+          {/* Content */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            {activeTab === 'system' && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Ajustes del sistema</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Nombre del sitio</label>
+                    <input
+                      value={systemSettings.site_name}
+                      onChange={(e) => handleSystemSettingChange('site_name', e.target.value)}
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Reportes por página</label>
+                    <input
+                      type="number"
+                      value={systemSettings.reports_per_page}
+                      onChange={(e) => handleSystemSettingChange('reports_per_page', Number(e.target.value))}
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Recordatorio de mantenimiento (días)</label>
+                    <input
+                      type="number"
+                      value={systemSettings.maintenance_reminder_days}
+                      onChange={(e) => handleSystemSettingChange('maintenance_reminder_days', Number(e.target.value))}
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <input
+                      id="auto_backup"
+                      type="checkbox"
+                      checked={systemSettings.auto_backup_enabled}
+                      onChange={(e) => handleSystemSettingChange('auto_backup_enabled', e.target.checked)}
+                    />
+                    <label htmlFor="auto_backup" className="text-sm text-gray-700">Habilitar backups automáticos</label>
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <button onClick={handleSaveSettings} className="px-4 py-2 bg-blue-600 text-white rounded">Guardar ajustes</button>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'users' && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Configuración de Usuarios</h2>
+                <p className="text-sm text-gray-600 mb-4">Ajustes generales relacionados con la creación y el rol por defecto de los usuarios.</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Permitir registro de usuarios</label>
+                    <div className="mt-2">
+                      <label className="inline-flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={userSettings.allow_user_registration}
+                          onChange={(e) => setUserSettings((s) => ({ ...s, allow_user_registration: e.target.checked }))}
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Activar</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Rol por defecto</label>
+                    <select
+                      value={userSettings.default_role}
+                      onChange={(e) => setUserSettings((s) => ({ ...s, default_role: e.target.value }))}
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                    >
+                      <option value="technician">Técnico</option>
+                      <option value="user">Usuario</option>
+                      <option value="admin">Administrador</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <button
+                    onClick={async () => {
+                      setLoading(true);
+                      try {
+                        const token = localStorage.getItem('access_token');
+                        await axios.post(`${API_URL}/api/config/settings/`, { user_settings: userSettings }, { headers: { Authorization: `Bearer ${token}` } });
+                        alert('Ajustes de usuario guardados');
+                      } catch (err) {
+                        console.error(err);
+                        alert('Error al guardar ajustes de usuario');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded"
+                  >
+                    Guardar ajustes de usuario
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

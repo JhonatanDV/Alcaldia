@@ -129,7 +129,11 @@ export default function TemplateEditor() {
         </div>
       </div>
       {editingTemplateId && (
-        <TemplateDesigner templateId={editingTemplateId} onClose={() => setEditingTemplateId(null)} />
+        <TemplateDesigner
+          templateId={editingTemplateId}
+          onClose={() => setEditingTemplateId(null)}
+          sampleData={jsonData ? (() => { try { return JSON.parse(jsonData); } catch { return {}; } })() : {}}
+        />
       )}
     </div>
   );

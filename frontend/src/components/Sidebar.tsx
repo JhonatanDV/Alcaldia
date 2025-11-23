@@ -1,289 +1,174 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-interface SidebarProps {
-  userRole: 'admin' | 'technician' | null;
-  onLogout: () => void;
-}
+type Role = 'admin' | 'technician' | 'guest';
 
-export default function Sidebar({ userRole, onLogout }: SidebarProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
-  const [username, setUsername] = useState('Usuario');
+type SubItem = { name: string; href: string; roles?: Role[] };
+
+type MenuItem = {
+  name: string;
+  href?: string;
+  icon?: React.ReactNode;
+  roles?: Role[];
+  submenu?: SubItem[];
+};
+
+export default function Sidebar({ userRole: propUserRole, onLogout }: { userRole?: Role | null; onLogout?: () => void }) {
   const pathname = usePathname();
-
-
-  useEffect(() => {
-    const storedUsername = localStorage.getItem('username') || 'Usuario';
-    setUsername(storedUsername);
-  }, []);
+  const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [userRole, setUserRole] = useState<Role>('admin');
+  const [username, setUsername] = useState('Usuario');
 
   useEffect(() => {
-    console.log('Sidebar userRole:', userRole);
-    console.log('Sidebar username:', username);
-  }, [userRole, username]);
+    if (typeof window !== 'undefined') {
+      const roleFromStorage = (localStorage.getItem('role') as Role) || null;
+      const initialRole = propUserRole || roleFromStorage || 'admin';
+      setUserRole(initialRole as Role);
+      setUsername(localStorage.getItem('username') || 'Usuario');
+    }
+  }, [propUserRole]);
 
-  const isActive = (path: string) => {
-    return pathname === path || pathname?.startsWith(path + '/');
+  const isActive = (href?: string) => {
+    if (!href) return false;
+    return pathname === href || pathname?.startsWith(href + '/');
   };
 
-  const toggleSubmenu = (name: string) => {
-    setOpenSubmenu(openSubmenu === name ? null : name);
+  const toggleSub = (name: string) => setOpenSubmenu((s) => (s === name ? null : name));
+
+  const handleLogout = async () => {
+    if (onLogout) {
+      onLogout();
+      return;
+    }
+
+    if (typeof window === 'undefined') return;
+
+    const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '');
+    const refresh = localStorage.getItem('refresh_token');
+    const access = localStorage.getItem('access_token');
+
+    try {
+      if (refresh) {
+        await fetch(`${API_URL}/api/logout/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(access ? { Authorization: `Bearer ${access}` } : {}),
+          },
+          body: JSON.stringify({ refresh }),
+        });
+      }
+    } catch (err) {
+      // Ignore network errors; proceed to clear storage anyway
+      console.warn('Logout request failed', err);
+    }
+
+    // Clear client storage and redirect to login
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user_role');
+    localStorage.removeItem('username');
+    localStorage.removeItem('role');
+    window.location.href = '/';
   };
 
-  const menuItems = [
-    {
-      name: 'Dashboard',
-      href: '/dashboard',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-        </svg>
-      ),
-      roles: ['admin', 'technician'],
-    },
-    {
-      name: 'Equipos',
-      href: '/equipment',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-        </svg>
-      ),
-      roles: ['admin', 'technician'],
-      submenu: [
-        { name: 'Lista de Equipos', href: '/equipment', roles: ['admin', 'technician'] },
-        { name: 'Nuevo Equipo', href: '/equipment/new', roles: ['admin'] },
-      ],
-    },
-    {
-      name: 'Mantenimientos',
-      href: '/maintenance',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-      ),
-      roles: ['admin', 'technician'],
-      submenu: [
-        { name: 'Lista Mantenimientos', href: '/maintenance', roles: ['admin', 'technician'] },
-        { name: 'Nuevo Mantenimiento', href: '/maintenance/new', roles: ['admin', 'technician'] },
-      ],
-    },
-    {
-      name: 'Reportes',
-      href: '/reports',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-      ),
-      roles: ['admin', 'technician'],
-    },
-    {
-      name: 'Ubicaciones',
-      href: '/admin/locations',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-      ),
-      roles: ['admin'],
-      submenu: [
-        { name: 'Sedes', href: '/admin/locations?tab=sedes', roles: ['admin'] },
-        { name: 'Dependencias', href: '/admin/locations?tab=dependencias', roles: ['admin'] },
-        { name: 'Subdependencias', href: '/admin/locations?tab=subdependencias', roles: ['admin'] },
-      ],
-    },
-    {
-      name: 'Usuarios',
-      href: '/admin/users',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-        </svg>
-      ),
-      roles: ['admin'],
-    },
-    {
-      name: 'Configuración',
-      href: '/admin',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-      ),
-      roles: ['admin'],
-      submenu: [
-        { name: 'Ajustes', href: '/admin/settings', roles: ['admin'] },
-        { name: 'Permisos', href: '/admin/permissions', roles: ['admin'] },
-        { name: 'Backup', href: '/admin/backup', roles: ['admin'] },
-      ],
-    },
+  const menu: MenuItem[] = [
+    { name: 'Dashboard', href: '/dashboard', roles: ['admin', 'technician'], icon: (
+      <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 13h8V3H3v10zM3 21h8v-6H3v6zM13 21h8V11h-8v10zM13 3v6h8V3h-8z"/></svg>
+    ) },
+    { name: 'Equipos', href: '/equipment', roles: ['admin', 'technician'], icon: (
+      <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 7H4v10h16V7zM8 3v4"/></svg>
+    ), submenu: [
+      { name: 'Lista de Equipos', href: '/equipment', roles: ['admin', 'technician'] },
+      { name: 'Nuevo Equipo', href: '/equipment/new', roles: ['admin'] },
+    ] },
+    { name: 'Mantenimientos', href: '/maintenance', roles: ['admin', 'technician'], icon: (
+      <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 1v4M12 19v4M4.2 4.2l2.8 2.8M17 17l2.8 2.8M1 12h4M19 12h4M4.2 19.8l2.8-2.8M17 7l2.8-2.8"/></svg>
+    ), submenu: [
+      { name: 'Lista Mantenimientos', href: '/maintenance', roles: ['admin', 'technician'] },
+      { name: 'Nuevo Mantenimiento', href: '/maintenance/new', roles: ['admin', 'technician'] },
+    ] },
+    { name: 'Reportes', href: '/reports', roles: ['admin', 'technician'], icon: (
+      <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3h18v18H3V3zM7 7h10M7 11h10M7 15h6"/></svg>
+    ), submenu: [
+      { name: 'Plantillas', href: '/reports/templates', roles: ['admin', 'technician'] },
+      { name: 'Generados', href: '/reports/list', roles: ['admin', 'technician'] },
+    ] },
+    { name: 'Ubicaciones', href: '/admin/locations', roles: ['admin'], icon: (
+      <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z"/></svg>
+    ), submenu: [
+      { name: 'Sedes', href: '/admin/locations?tab=sedes', roles: ['admin'] },
+      { name: 'Dependencias', href: '/admin/locations?tab=dependencias', roles: ['admin'] },
+      { name: 'Subdependencias', href: '/admin/locations?tab=subdependencias', roles: ['admin'] },
+    ] },
+    { name: 'Usuarios', href: '/admin/users', roles: ['admin'], icon: (
+      <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zM4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+    ) },
+    { name: 'Configuración', href: '/admin', roles: ['admin'], icon: (
+      <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06A2 2 0 012.28 18l.06-.06A1.65 1.65 0 012.67 16.2 1.65 1.65 0 013 14.4V12a2 2 0 110-4v-.09c0-.6.24-1.17.67-1.59l.06-.06A2 2 0 115.57 4.4l-.06.06A1.65 1.65 0 017.4 3.67 1.65 1.65 0 009.2 3h.09A2 2 0 0112 2h0a2 2 0 011.71 1.09c.2.36.57.61 1 .65h.09a1.65 1.65 0 011.58 1.45c.05.36.28.68.62.88z"/></svg>
+    ), submenu: [
+      { name: 'Ajustes', href: '/admin/settings', roles: ['admin'] },
+      { name: 'Permisos', href: '/admin/permissions', roles: ['admin'] },
+      { name: 'Backup', href: '/admin/backup', roles: ['admin'] },
+    ] },
   ];
 
-  const filteredMenuItems = menuItems.filter(item => 
-    item.roles.includes(userRole as string)
-  );
+  const filtered = menu.filter((m) => (m.roles ? m.roles.includes(userRole) : true));
 
   return (
     <>
-      {/* Mobile menu button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-blue-900 text-white hover:bg-blue-800 transition-colors"
-        aria-label="Toggle menu"
-      >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          {isOpen ? (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          ) : (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          )}
-        </svg>
+      {/* Mobile toggle */}
+      <button onClick={() => setMobileOpen((s) => !s)} className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-blue-900 text-white">
+        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
 
-      {/* Overlay for mobile */}
-      {isOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
+      <aside className={`fixed top-0 left-0 z-40 h-screen w-64 bg-gradient-to-b from-blue-900 to-blue-800 text-white shadow-lg transform ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-transform duration-200`}>
+        <div className="p-4 border-b border-blue-800">
+          <h1 className="text-lg font-bold">Sistema</h1>
+          <div className="text-sm text-blue-200 mt-1">{username}</div>
+        </div>
 
-      {/* Sidebar */}
-      <aside
-        className={`
-          fixed top-0 left-0 z-40 h-screen w-64
-          bg-gradient-to-b from-blue-900 to-blue-800
-          text-gray-100 shadow-2xl
-          transform transition-transform duration-300 ease-in-out
-          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-          lg:translate-x-0
-        `}
-      >
-        <div className="flex flex-col h-full">
-          {/* Header con nombre de usuario */}
-          <div className="p-4 bg-blue-950 bg-opacity-50">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-lg">
-                {username.charAt(0).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white truncate">{username}</p>
-                <p className="text-xs text-gray-300 capitalize">{userRole || 'Usuario'}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Navigation Menu */}
-          <nav className="flex-1 overflow-y-auto py-4 px-2">
-            {filteredMenuItems.map((item) => (
-              <div key={item.name} className="mb-1">
-                {item.submenu ? (
-                  <>
-                    <button
-                      onClick={() => toggleSubmenu(item.name)}
-                      className={`
-                        w-full flex items-center justify-between px-3 py-2.5
-                        text-sm font-medium rounded-lg
-                        transition-all duration-200
-                        ${isActive(item.href) || openSubmenu === item.name
-                          ? 'bg-blue-700 text-white shadow-lg'
-                          : 'text-gray-200 hover:bg-blue-800 hover:text-white'
-                        }
-                      `}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <span className="flex-shrink-0">{item.icon}</span>
-                        <span>{item.name}</span>
-                      </div>
-                      <svg
-                        className={`w-4 h-4 transition-transform duration-200 ${
-                          openSubmenu === item.name ? 'transform rotate-180' : ''
-                        }`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    {openSubmenu === item.name && (
-                      <div className="mt-1 ml-8 space-y-1">
-                        {item.submenu
-                          .filter(subitem => subitem.roles.includes(userRole as string))
-                          .map((subitem) => (
-                            <Link
-                              key={subitem.href}
-                              href={subitem.href}
-                              onClick={() => setIsOpen(false)}
-                              className={`
-                                block px-3 py-2 text-sm rounded-lg
-                                transition-all duration-200
-                                ${isActive(subitem.href)
-                                  ? 'bg-blue-600 text-white font-medium'
-                                  : 'text-gray-300 hover:bg-blue-800 hover:text-white'
-                                }
-                              `}
-                            >
-                              <div className="flex items-center space-x-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-                                <span>{subitem.name}</span>
-                              </div>
-                            </Link>
-                          ))}
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <Link
-                    href={item.href}
-                    onClick={() => setIsOpen(false)}
-                    className={`
-                      flex items-center space-x-3 px-3 py-2.5
-                      text-sm font-medium rounded-lg
-                      transition-all duration-200
-                      ${isActive(item.href)
-                        ? 'bg-blue-700 text-white shadow-lg'
-                        : 'text-gray-200 hover:bg-blue-800 hover:text-white'
-                      }
-                    `}
-                  >
-                    <span className="flex-shrink-0">{item.icon}</span>
+        <nav className="p-3 space-y-1 overflow-y-auto h-[calc(100vh-64px)]">
+          {filtered.map((item) => (
+            <div key={item.name}>
+              {item.submenu ? (
+                <div>
+                  <button onClick={() => toggleSub(item.name)} className={`w-full flex items-center justify-between px-3 py-2 rounded hover:bg-blue-800 ${isActive(item.href) ? 'bg-blue-700' : ''}`}>
+                    <div className="flex items-center">
+                      {item.icon}
+                      <span>{item.name}</span>
+                    </div>
+                    <span className={`transform transition-transform ${openSubmenu === item.name ? 'rotate-180' : 'rotate-0'}`}>▾</span>
+                  </button>
+                  {openSubmenu === item.name && (
+                    <div className="pl-4 mt-1 space-y-1">
+                      {item.submenu!.filter(si => !si.roles || si.roles.includes(userRole)).map((si) => (
+                        <Link key={si.href} href={si.href} className={`block px-3 py-2 rounded hover:bg-blue-800 ${isActive(si.href) ? 'bg-blue-600' : ''}`}>{si.name}</Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Link href={item.href || '#'} className={`block px-3 py-2 rounded hover:bg-blue-800 ${isActive(item.href) ? 'bg-blue-700' : ''}`}>
+                  <div className="flex items-center">
+                    {item.icon}
                     <span>{item.name}</span>
-                  </Link>
-                )}
-              </div>
-            ))}
-          </nav>
+                  </div>
+                </Link>
+              )}
+            </div>
+          ))}
+        </nav>
 
-          {/* Quick Actions Section */}
-          <div className="border-t border-blue-700 px-2 py-4 bg-blue-950 bg-opacity-30">
-            <p className="px-3 mb-2 text-xs font-semibold text-yellow-400 uppercase tracking-wider">
-              Acciones Rápidas
-            </p>
-            <button
-              onClick={onLogout}
-              className="
-                w-full flex items-center space-x-3 px-3 py-2.5
-                text-sm font-medium text-gray-200
-                hover:bg-red-600 hover:text-white
-                rounded-lg transition-all duration-200
-              "
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              <span>Cerrar Sesión</span>
-            </button>
-          </div>
+        <div className="p-3 border-t border-blue-800">
+          <button onClick={handleLogout} className="w-full text-left px-3 py-2 rounded hover:bg-red-600 flex items-center">
+            <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 17l5-5-5-5M21 12H9"/></svg>
+            <span>Cerrar sesión</span>
+          </button>
         </div>
       </aside>
     </>

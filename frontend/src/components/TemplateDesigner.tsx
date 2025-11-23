@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
@@ -10,11 +10,15 @@ type Marker = {
   page: number;
 };
 
-export default function TemplateDesigner({ templateId, onClose }: { templateId: number; onClose: () => void }) {
+export default function TemplateDesigner({ templateId, onClose, sampleData }: { templateId: number; onClose: () => void; sampleData?: any }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [markers, setMarkers] = useState<Marker[]>([]);
+  const [previewEnabled, setPreviewEnabled] = useState(false);
+  const [previewOnCanvas, setPreviewOnCanvas] = useState(false);
+  const [previewJson, setPreviewJson] = useState<string>('');
+  const [previewObj, setPreviewObj] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState<{ key: string; offsetX: number; offsetY: number } | null>(null);
@@ -48,42 +52,124 @@ export default function TemplateDesigner({ templateId, onClose }: { templateId: 
     fetchTemplate();
   }, [templateId]);
 
-  useEffect(() => {
-    const renderPdf = async () => {
-      if (!pdfUrl || !canvasRef.current) return;
-      try {
-        const loadingTask = pdfjsLib.getDocument(pdfUrl);
-        const pdf = await loadingTask.promise;
-        const page = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: 1.5 });
-        const canvas = canvasRef.current;
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) throw new Error('No canvas context');
-        const renderContext = {
-          canvasContext: ctx,
-          viewport,
-        };
-        await page.render(renderContext).promise;
-      } catch (err) {
-        console.error(err);
-        setError('Error renderizando PDF');
-      }
-    };
-    renderPdf();
-  }, [pdfUrl]);
+  // Function that draws overlays with preview text directly on the canvas
+  const drawOverlay = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
+    ctx.save();
+    const fontSize = Math.max(10, Math.floor(canvas.width / 80));
+    ctx.font = `${fontSize}px sans-serif`;
+    ctx.textBaseline = 'top';
+
+    markers.forEach((m) => {
+      const text = previewEnabled ? (previewObj?.[m.key] ?? sampleData?.[m.key] ?? m.key) : m.key;
+      const x = m.x_pct * canvas.width;
+      const y = m.y_pct * canvas.height;
+      const padding = 6;
+      const metrics = ctx.measureText(text || '');
+      const textWidth = metrics.width || 40;
+      const textHeight = fontSize + 4;
+
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillRect(x, y, textWidth + padding * 2, textHeight + padding * 2);
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.strokeRect(x, y, textWidth + padding * 2, textHeight + padding * 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.95)';
+      ctx.fillText(text, x + padding, y + padding);
+    });
+
+    ctx.restore();
+  }, [markers, previewEnabled, previewObj, sampleData]);
+
+  // Render base template (PDF or image) into canvas
+  const renderTemplate = useCallback(async () => {
+    if (!pdfUrl || !canvasRef.current) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('No canvas context');
+
+      // Clear
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Detect if URL points to an image
+      const lower = pdfUrl.toLowerCase();
+      if (lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.webp')) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          ctx.drawImage(img, 0, 0);
+          // draw overlay if requested
+          if (previewOnCanvas) drawOverlay();
+          setLoading(false);
+        };
+        img.onerror = (e) => {
+          console.error('Error loading image', e);
+          setError('Error renderizando imagen');
+          setLoading(false);
+        };
+        img.src = pdfUrl;
+        return;
+      }
+
+      const loadingTask = pdfjsLib.getDocument(pdfUrl);
+      const pdf = await loadingTask.promise;
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 1.5 });
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const renderContext = {
+        canvasContext: ctx,
+        viewport,
+      };
+      await page.render(renderContext).promise;
+      if (previewOnCanvas) drawOverlay();
+    } catch (err) {
+      console.error(err);
+      setError('Error renderizando plantilla');
+    } finally {
+      setLoading(false);
+    }
+  }, [pdfUrl, previewOnCanvas, drawOverlay]);
+
+  useEffect(() => {
+    renderTemplate();
+  }, [pdfUrl, renderTemplate]);
+
+  // When markers or preview data change, redraw overlay if enabled
+  useEffect(() => {
+    if (previewOnCanvas) {
+      // small timeout to ensure base image is present
+      const t = setTimeout(() => {
+        drawOverlay();
+      }, 50);
+      return () => clearTimeout(t);
+    }
+    return;
+  }, [markers, previewOnCanvas, previewEnabled, previewObj, sampleData, drawOverlay]);
+
+  // Map page coordinates to percentages based on displayed size (use getBoundingClientRect to account for CSS scaling)
   const toPct = (x: number, y: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x_pct: 0, y_pct: 0 };
-    return { x_pct: x / canvas.width, y_pct: y / canvas.height };
+    const rect = canvas.getBoundingClientRect();
+    const relX = x / rect.width; // x relative to displayed width
+    const relY = y / rect.height;
+    return { x_pct: relX, y_pct: relY };
   };
 
   const fromPct = (x_pct: number, y_pct: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
-    return { x: x_pct * canvas.width, y: y_pct * canvas.height };
+    const rect = canvas.getBoundingClientRect();
+    return { x: x_pct * rect.width, y: y_pct * rect.height };
   };
 
   const handleMouseDown = (e: React.MouseEvent, key: string) => {
@@ -97,9 +183,16 @@ export default function TemplateDesigner({ templateId, onClose }: { templateId: 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!dragging || !containerRef.current) return;
     const containerRect = containerRef.current.getBoundingClientRect();
+    // The marker element's offset is measured relative to the container, but canvas may be positioned within container.
     const x = e.clientX - containerRect.left - dragging.offsetX;
     const y = e.clientY - containerRect.top - dragging.offsetY;
-    const { x_pct, y_pct } = toPct(x, y);
+    // Convert screen coordinate to canvas-local by calculating position relative to canvas bounding rect
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const canvasRect = canvas.getBoundingClientRect();
+    const localX = e.clientX - canvasRect.left - dragging.offsetX;
+    const localY = e.clientY - canvasRect.top - dragging.offsetY;
+    const { x_pct, y_pct } = toPct(localX, localY);
     setMarkers((prev) => prev.map((m) => (m.key === dragging.key ? { ...m, x_pct: Math.max(0, Math.min(1, x_pct)), y_pct: Math.max(0, Math.min(1, y_pct)) } : m)));
   };
 
@@ -111,6 +204,26 @@ export default function TemplateDesigner({ templateId, onClose }: { templateId: 
   };
 
   const removeMarker = (key: string) => setMarkers((prev) => prev.filter((m) => m.key !== key));
+
+  const updateMarkerKey = (oldKey: string, newKeyRaw: string) => {
+    const newKey = (newKeyRaw || '').trim();
+    if (!newKey) return;
+    setMarkers((prev) => {
+      // Avoid duplicate keys by appending suffix if needed
+      let finalKey = newKey;
+      const others = prev.filter((p) => p.key !== oldKey).map((p) => p.key);
+      let counter = 1;
+      while (others.includes(finalKey)) {
+        finalKey = `${newKey}_${counter}`;
+        counter += 1;
+      }
+      return prev.map((m) => (m.key === oldKey ? { ...m, key: finalKey } : m));
+    });
+  };
+
+  const updateMarkerPage = (key: string, page: number) => {
+    setMarkers((prev) => prev.map((m) => (m.key === key ? { ...m, page } : m)));
+  };
 
   const saveSchema = async () => {
     try {
@@ -135,6 +248,16 @@ export default function TemplateDesigner({ templateId, onClose }: { templateId: 
     }
   };
 
+  const applyPreviewJson = () => {
+    try {
+      const obj = previewJson ? JSON.parse(previewJson) : {};
+      setPreviewObj(obj);
+      setPreviewEnabled(true);
+    } catch (e) {
+      setError('JSON de vista previa inválido');
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center p-6 bg-black bg-opacity-50">
       <div className="bg-white rounded shadow-lg w-full max-w-4xl max-h-[90vh] overflow-auto p-4">
@@ -143,6 +266,21 @@ export default function TemplateDesigner({ templateId, onClose }: { templateId: 
           <div className="flex gap-2">
             <button onClick={addMarker} className="px-3 py-1 bg-blue-600 text-white rounded">Añadir campo</button>
             <button onClick={saveSchema} className="px-3 py-1 bg-green-600 text-white rounded">Guardar posiciones</button>
+            <button
+              onClick={async () => {
+                if (previewOnCanvas) {
+                  setPreviewOnCanvas(false);
+                  await renderTemplate();
+                } else {
+                  setPreviewOnCanvas(true);
+                  // draw immediately if canvas already has content
+                  drawOverlay();
+                }
+              }}
+              className={`px-3 py-1 ${previewOnCanvas ? 'bg-orange-600 text-white' : 'bg-gray-200'} rounded`}
+            >
+              {previewOnCanvas ? 'Ocultar vista canvas' : 'Mostrar vista canvas'}
+            </button>
             <button onClick={onClose} className="px-3 py-1 bg-gray-300 rounded">Cerrar</button>
           </div>
         </div>
@@ -150,26 +288,64 @@ export default function TemplateDesigner({ templateId, onClose }: { templateId: 
         {loading && <div>Cargando plantilla...</div>}
         {error && <div className="text-red-600">{error}</div>}
 
-        <div ref={containerRef} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} className="relative border">
-          <canvas ref={canvasRef} style={{ display: pdfUrl ? 'block' : 'none', maxWidth: '100%', height: 'auto' }} />
+        <div className="flex gap-4">
+          <div ref={containerRef} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} className="relative border flex-1">
+            <canvas ref={canvasRef} style={{ display: pdfUrl ? 'block' : 'none', maxWidth: '100%', height: 'auto' }} />
 
-          {/* Overlay markers */}
-          {markers.map((m) => {
-            const pos = fromPct(m.x_pct, m.y_pct);
-            return (
-              <div
-                key={m.key}
-                onMouseDown={(e) => handleMouseDown(e, m.key)}
-                style={{ position: 'absolute', left: pos.x, top: pos.y, cursor: 'move' }}
-                className="bg-yellow-300 border px-2 py-1 rounded"
-              >
-                <div className="flex items-center gap-2">
-                  <strong className="text-xs">{m.key}</strong>
-                  <button onClick={() => removeMarker(m.key)} className="text-xs text-red-600">x</button>
+            {/* Overlay markers */}
+            {markers.map((m) => {
+              const pos = fromPct(m.x_pct, m.y_pct);
+              const previewText = previewEnabled ? (previewObj?.[m.key] ?? sampleData?.[m.key] ?? m.key) : m.key;
+              return (
+                <div
+                  key={m.key}
+                  onMouseDown={(e) => handleMouseDown(e, m.key)}
+                  style={{ position: 'absolute', left: pos.x, top: pos.y, cursor: 'move' }}
+                  className="bg-yellow-300 border px-2 py-1 rounded max-w-xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <strong className="text-xs">{previewText}</strong>
+                    <button onMouseDown={(e) => e.stopPropagation()} onClick={() => removeMarker(m.key)} className="text-xs text-red-600">x</button>
+                  </div>
                 </div>
+              );
+            })}
+          </div>
+
+          {/* Side panel: editable list of markers */}
+          <aside className="w-64 border-l pl-3">
+            <h3 className="font-medium mb-2">Vista previa</h3>
+            <div className="mb-2">
+              <label className="text-xs text-gray-600">Datos de ejemplo (JSON)</label>
+              <textarea value={previewJson} onChange={(e) => setPreviewJson(e.target.value)} rows={4} className="w-full border rounded p-2 font-mono text-sm mb-2" placeholder='Ej: { "client_name": "ACME" }' />
+              <div className="flex gap-2">
+                <button onClick={applyPreviewJson} className="px-3 py-1 bg-blue-600 text-white rounded">Aplicar vista previa</button>
+                <button onClick={() => { setPreviewJson(''); setPreviewObj({}); setPreviewEnabled(false); }} className="px-3 py-1 bg-gray-200 rounded">Quitar vista</button>
               </div>
-            );
-          })}
+            </div>
+
+            <h3 className="font-medium mb-2 mt-4">Campos</h3>
+            <div className="space-y-2">
+              {markers.map((m) => (
+                <div key={m.key} className="p-2 border rounded bg-gray-50">
+                  <label className="text-xs text-gray-600">Clave</label>
+                  <input
+                    value={m.key}
+                    onChange={(e) => updateMarkerKey(m.key, e.target.value)}
+                    className="w-full px-2 py-1 border rounded text-sm mb-1"
+                  />
+                  <label className="text-xs text-gray-600">Página</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={m.page}
+                    onChange={(e) => updateMarkerPage(m.key, Number(e.target.value) || 1)}
+                    className="w-full px-2 py-1 border rounded text-sm"
+                  />
+                </div>
+              ))}
+            </div>
+          </aside>
         </div>
 
         <div className="mt-3 text-sm text-gray-600">Arrastra los campos sobre la plantilla. Se guardan en porcentajes relativos a la página.</div>

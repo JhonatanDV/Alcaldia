@@ -328,3 +328,15 @@ class Incident(models.Model):
 
     def __str__(self):
         return f"Incident - {self.equipment.name} - {self.incident_date}"
+
+
+class SiteConfiguration(models.Model):
+    """Singleton-style model to store site-wide configuration as JSON."""
+    config = models.JSONField(default=dict, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'site_configuration'
+
+    def __str__(self):
+        return 'Site configuration'
