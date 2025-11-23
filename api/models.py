@@ -4,6 +4,69 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 
 
+class Sede(models.Model):
+    """Modelo para gestionar las sedes de la alcaldía"""
+    nombre = models.CharField(max_length=255, unique=True)
+    direccion = models.CharField(max_length=500, null=True, blank=True)
+    telefono = models.CharField(max_length=50, null=True, blank=True)
+    codigo = models.CharField(max_length=50, unique=True, null=True, blank=True)
+    activo = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sede'
+        ordering = ['nombre']
+        verbose_name = 'Sede'
+        verbose_name_plural = 'Sedes'
+
+    def __str__(self):
+        return self.nombre
+
+
+class Dependencia(models.Model):
+    """Modelo para gestionar las dependencias asociadas a una sede"""
+    sede = models.ForeignKey(Sede, on_delete=models.CASCADE, related_name='dependencias')
+    nombre = models.CharField(max_length=255)
+    codigo = models.CharField(max_length=50, null=True, blank=True)
+    responsable = models.CharField(max_length=255, null=True, blank=True)
+    email = models.EmailField(null=True, blank=True)
+    activo = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'dependencia'
+        ordering = ['nombre']
+        verbose_name = 'Dependencia'
+        verbose_name_plural = 'Dependencias'
+        unique_together = ['sede', 'nombre']
+
+    def __str__(self):
+        return f"{self.nombre} - {self.sede.nombre}"
+
+
+class Subdependencia(models.Model):
+    """Modelo para gestionar las subdependencias asociadas a una dependencia"""
+    dependencia = models.ForeignKey(Dependencia, on_delete=models.CASCADE, related_name='subdependencias')
+    nombre = models.CharField(max_length=255)
+    codigo = models.CharField(max_length=50, null=True, blank=True)
+    responsable = models.CharField(max_length=255, null=True, blank=True)
+    activo = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'subdependencia'
+        ordering = ['nombre']
+        verbose_name = 'Subdependencia'
+        verbose_name_plural = 'Subdependencias'
+        unique_together = ['dependencia', 'nombre']
+
+    def __str__(self):
+        return f"{self.nombre} - {self.dependencia.nombre}"
+
+
 class Equipment(models.Model):
     code = models.CharField(max_length=100, unique=True, null=True, blank=True)
     name = models.CharField(max_length=255)
@@ -11,7 +74,15 @@ class Equipment(models.Model):
     model = models.CharField(max_length=100, null=True, blank=True)
     brand = models.CharField(max_length=100, null=True, blank=True)
     location = models.CharField(max_length=255, null=True, blank=True)
-    dependencia = models.CharField(max_length=255, null=True, blank=True)
+    
+    # Campo legacy (mantener durante migración)
+    dependencia = models.CharField(max_length=255, null=True, blank=True, db_column='dependencia_legacy')
+    
+    # Nuevos campos de relaciones jerárquicas
+    sede_rel = models.ForeignKey(Sede, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipments')
+    dependencia_rel = models.ForeignKey(Dependencia, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipments')
+    subdependencia = models.ForeignKey(Subdependencia, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipments')
+    
     purchase_date = models.DateField(null=True, blank=True)
     warranty_expiry = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True, default='')
@@ -56,11 +127,18 @@ class Maintenance(models.Model):
     codigo = models.CharField(max_length=50, null=True, blank=True)
     version = models.CharField(max_length=20, null=True, blank=True)
     vigencia = models.DateField(null=True, blank=True)
+    
+    # Relaciones jerárquicas
+    sede_rel = models.ForeignKey(Sede, on_delete=models.SET_NULL, null=True, blank=True, related_name='maintenances')
+    dependencia_rel = models.ForeignKey(Dependencia, on_delete=models.SET_NULL, null=True, blank=True, related_name='maintenances')
+    subdependencia = models.ForeignKey(Subdependencia, on_delete=models.SET_NULL, null=True, blank=True, related_name='maintenances')
+    
+    # Campos legacy para migración
     dependencia = models.CharField(max_length=255, null=True, blank=True)
     ubicacion = models.CharField(max_length=255, null=True, blank=True)
+    sede = models.CharField(max_length=255, null=True, blank=True)
 
     # Campos del formulario
-    sede = models.CharField(max_length=255, null=True, blank=True)
     oficina = models.CharField(max_length=255, null=True, blank=True)
     placa = models.CharField(max_length=100, null=True, blank=True)
     hora_inicio = models.TimeField(null=True, blank=True)

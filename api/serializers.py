@@ -7,8 +7,43 @@ from .models import (
     Photo,
     Signature,
     SecondSignature,
-    Report
+    Report,
+    Sede,
+    Dependencia,
+    Subdependencia
 )
+
+
+class SedeSerializer(serializers.ModelSerializer):
+    dependencias_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Sede
+        fields = '__all__'
+    
+    def get_dependencias_count(self, obj):
+        return obj.dependencias.count()
+
+
+class DependenciaSerializer(serializers.ModelSerializer):
+    sede_nombre = serializers.CharField(source='sede.nombre', read_only=True)
+    subdependencias_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Dependencia
+        fields = '__all__'
+    
+    def get_subdependencias_count(self, obj):
+        return obj.subdependencias.count()
+
+
+class SubdependenciaSerializer(serializers.ModelSerializer):
+    dependencia_nombre = serializers.CharField(source='dependencia.nombre', read_only=True)
+    sede_nombre = serializers.CharField(source='dependencia.sede.nombre', read_only=True)
+    
+    class Meta:
+        model = Subdependencia
+        fields = '__all__'
 
 
 class PhotoSerializer(serializers.ModelSerializer):
@@ -42,7 +77,8 @@ class ReportSerializer(serializers.ModelSerializer):
         return None
 
 
-class GroupSerializer(serializers.ModelSerializer):
+class RoleSerializer(serializers.ModelSerializer):
+    """Serializer para roles (Django Groups) con terminología más clara"""
     user_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -54,16 +90,16 @@ class GroupSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
-    groups = serializers.SerializerMethodField()
+    roles = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 
-                  'is_active', 'is_staff', 'is_superuser', 'groups', 'date_joined']
+                  'is_active', 'is_staff', 'is_superuser', 'roles', 'date_joined']
         read_only_fields = ['id', 'date_joined']
 
-    def get_groups(self, obj):
-        return [group.name for group in obj.groups.all()]
+    def get_roles(self, obj):
+        return [{'id': group.id, 'name': group.name} for group in obj.groups.all()]
 
 
 class UserCreateSerializer(serializers.ModelSerializer):

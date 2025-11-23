@@ -11,46 +11,64 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from .models import Maintenance, Incident, Equipment
-from .reports import MaintenanceReportPDF, IncidentReportPDF
+from .reports import get_report_generator
+from .filters import MaintenanceFilter
 
 
 class PackageMaintenancePDFsView(APIView):
     """
     Package multiple maintenance PDFs into a ZIP file.
+    Supports filtering by sede, dependencia, subdependencia, dates, etc.
     """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         maintenance_ids = request.data.get('maintenance_ids', [])
+        filters = request.data.get('filters', {})
         
-        if not maintenance_ids:
+        # Si se proporcionan IDs específicos, usar esos
+        if maintenance_ids:
+            maintenances = Maintenance.objects.filter(id__in=maintenance_ids)
+        # Si se proporcionan filtros, aplicarlos
+        elif filters:
+            queryset = Maintenance.objects.all()
+            filterset = MaintenanceFilter(filters, queryset=queryset)
+            maintenances = filterset.qs
+        else:
             return Response({
-                'error': 'maintenance_ids is required'
+                'error': 'Se requiere maintenance_ids o filters'
             }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not maintenances.exists():
+            return Response({
+                'error': 'No se encontraron mantenimientos'
+            }, status=status.HTTP_404_NOT_FOUND)
 
         # Create BytesIO buffer for ZIP
         zip_buffer = BytesIO()
         
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-            for maintenance_id in maintenance_ids:
+            for maintenance in maintenances:
                 try:
-                    maintenance = Maintenance.objects.get(id=maintenance_id)
-                    
                     # Generate PDF
-                    pdf_generator = MaintenanceReportPDF(maintenance)
-                    pdf_buffer = pdf_generator.generate()
+                    generator = get_report_generator('reportlab')
+                    pdf_buffer = generator.generate(maintenance)
                     
                     # Add to ZIP with descriptive filename
-                    filename = f"mantenimiento_{maintenance.equipo.placa}_{maintenance.fecha_mantenimiento.strftime('%Y%m%d')}.pdf"
+                    placa = maintenance.placa or maintenance.equipment.serial_number or maintenance.id
+                    fecha = maintenance.scheduled_date.strftime('%Y%m%d')
+                    filename = f"mantenimiento_{placa}_{fecha}.pdf"
                     zip_file.writestr(filename, pdf_buffer.getvalue())
                     
-                except Maintenance.DoesNotExist:
+                except Exception as e:
+                    print(f"Error generando PDF para mantenimiento {maintenance.id}: {str(e)}")
                     continue
         
         # Prepare response
         zip_buffer.seek(0)
         response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
-        response['Content-Disposition'] = 'attachment; filename="mantenimientos_package.zip"'
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        response['Content-Disposition'] = f'attachment; filename="mantenimientos_{timestamp}.zip"'
         
         return response
 

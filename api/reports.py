@@ -511,3 +511,42 @@ class PDFHeaderFooter:
     
     def draw_header(self, canvas, doc):
         """Draw header on each page."""
+
+
+# Factory function para obtener el generador de reportes
+def get_report_generator(report_type='reportlab', config=None):
+    """
+    Factory function para obtener un generador de reportes.
+    
+    Args:
+        report_type: Tipo de generador ('reportlab', 'weasyprint', etc.)
+        config: Configuración opcional para el generador
+    
+    Returns:
+        Una instancia del generador de reportes
+    """
+    if report_type == 'reportlab':
+        return ReportLabGenerator(config)
+    else:
+        raise ValueError(f"Tipo de reporte no soportado: {report_type}")
+
+
+class ReportLabGenerator:
+    """Generador de reportes usando ReportLab"""
+    
+    def __init__(self, config=None):
+        self.config = config or {}
+    
+    def generate(self, maintenance):
+        """
+        Genera un PDF para un mantenimiento.
+        
+        Args:
+            maintenance: Instancia de Maintenance
+            
+        Returns:
+            BytesIO buffer con el PDF generado
+        """
+        report_pdf = MaintenanceReportPDF(maintenance)
+        return report_pdf.generate()
+

@@ -6,11 +6,12 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.contrib.auth.models import User, Group
+from django.contrib.auth.models import User, Group, Permission
 from django.contrib.auth import authenticate
 from django.core.exceptions import ValidationError
 from .permissions import IsAdmin
-from .serializers import UserSerializer, GroupSerializer, UserCreateSerializer, UserUpdateSerializer
+from .serializers import UserSerializer, RoleSerializer, UserCreateSerializer, UserUpdateSerializer
+from rest_framework import serializers
 
 
 class UserManagementViewSet(viewsets.ModelViewSet):
@@ -122,7 +123,7 @@ class UserManagementViewSet(viewsets.ModelViewSet):
     def roles(self, request):
         """Get all available roles (groups)."""
         groups = Group.objects.all().order_by('name')
-        serializer = GroupSerializer(groups, many=True)
+        serializer = RoleSerializer(groups, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=['post'])
@@ -144,7 +145,7 @@ class UserManagementViewSet(viewsets.ModelViewSet):
 
         return Response({
             'message': f'Role "{role_name}" created successfully',
-            'role': GroupSerializer(group).data
+            'role': RoleSerializer(group).data
         }, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['delete'])
@@ -237,5 +238,84 @@ class GroupViewSet(viewsets.ReadOnlyModelViewSet):
     Read-only ViewSet for groups/roles.
     """
     queryset = Group.objects.all().order_by('name')
-    serializer_class = GroupSerializer
+    serializer_class = RoleSerializer
     permission_classes = [IsAuthenticated]
+
+
+class PermissionSerializer(serializers.ModelSerializer):
+    """Serializer for Django permissions"""
+    class Meta:
+        model = Permission
+        fields = ['id', 'name', 'codename', 'content_type']
+
+
+class PermissionViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet for listing all available permissions in the system.
+    """
+    queryset = Permission.objects.all().select_related('content_type')
+    serializer_class = PermissionSerializer
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get_queryset(self):
+        """Filter permissions for relevant models only"""
+        relevant_models = [
+            'equipment', 'maintenance', 'incident', 'report',
+            'sede', 'dependencia', 'subdependencia', 'user', 'group'
+        ]
+        return Permission.objects.filter(
+            content_type__model__in=relevant_models
+        ).select_related('content_type').order_by('content_type__model', 'codename')
+
+
+class RolePermissionsViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing role permissions.
+    Extends GroupViewSet to allow updating permissions.
+    """
+    queryset = Group.objects.all().order_by('name')
+    serializer_class = RoleSerializer
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def retrieve(self, request, pk=None):
+        """Get a role with its permissions"""
+        try:
+            role = self.get_object()
+            permissions = role.permissions.all()
+            return Response({
+                'id': role.id,
+                'name': role.name,
+                'permissions': [p.id for p in permissions]
+            })
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    def partial_update(self, request, pk=None):
+        """Update role permissions"""
+        try:
+            role = self.get_object()
+            permission_ids = request.data.get('permissions', [])
+            
+            # Validate permission IDs
+            permissions = Permission.objects.filter(id__in=permission_ids)
+            if len(permissions) != len(permission_ids):
+                return Response(
+                    {'error': 'Some permission IDs are invalid'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Update permissions
+            role.permissions.set(permissions)
+            
+            return Response({
+                'message': f'Permissions updated for role "{role.name}"',
+                'permissions': [p.id for p in role.permissions.all()]
+            })
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )

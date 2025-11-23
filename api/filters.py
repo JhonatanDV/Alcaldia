@@ -9,6 +9,8 @@ class MaintenanceFilter(django_filters.FilterSet):
     scheduled_date_to = django_filters.DateFilter(field_name='scheduled_date', lookup_expr='lte')
     completion_date_from = django_filters.DateFilter(field_name='completion_date', lookup_expr='gte')
     completion_date_to = django_filters.DateFilter(field_name='completion_date', lookup_expr='lte')
+    created_at_from = django_filters.DateFilter(field_name='created_at', lookup_expr='gte')
+    created_at_to = django_filters.DateFilter(field_name='created_at', lookup_expr='lte')
 
     # Text search filter
     search = django_filters.CharFilter(method='filter_search')
@@ -21,7 +23,17 @@ class MaintenanceFilter(django_filters.FilterSet):
     equipment_location = django_filters.CharFilter(field_name='equipment__location', lookup_expr='icontains')
     equipment_dependencia = django_filters.CharFilter(field_name='equipment__dependencia', lookup_expr='icontains')
 
-    # Maintenance-specific filters
+    # Filtros jerárquicos por ID (relaciones ForeignKey)
+    sede_id = django_filters.NumberFilter(field_name='sede_rel__id')
+    dependencia_id = django_filters.NumberFilter(field_name='dependencia_rel__id')
+    subdependencia_id = django_filters.NumberFilter(field_name='subdependencia__id')
+    
+    # Filtros por nombre (para búsquedas de texto)
+    sede_nombre = django_filters.CharFilter(field_name='sede_rel__nombre', lookup_expr='icontains')
+    dependencia_nombre = django_filters.CharFilter(field_name='dependencia_rel__nombre', lookup_expr='icontains')
+    subdependencia_nombre = django_filters.CharFilter(field_name='subdependencia__nombre', lookup_expr='icontains')
+
+    # Maintenance-specific filters (legacy)
     sede = django_filters.CharFilter(field_name='sede', lookup_expr='icontains')
     oficina = django_filters.CharFilter(field_name='oficina', lookup_expr='icontains')
     placa = django_filters.CharFilter(field_name='placa', lookup_expr='icontains')
@@ -40,6 +52,9 @@ class MaintenanceFilter(django_filters.FilterSet):
             'sede',
             'oficina',
             'placa',
+            'sede_id',
+            'dependencia_id',
+            'subdependencia_id',
         ]
 
     def filter_search(self, queryset, name, value):
@@ -54,6 +69,9 @@ class MaintenanceFilter(django_filters.FilterSet):
             Q(description__icontains=value) |
             Q(observations__icontains=value) |
             Q(sede__icontains=value) |
+            Q(sede_rel__nombre__icontains=value) |
+            Q(dependencia_rel__nombre__icontains=value) |
+            Q(subdependencia__nombre__icontains=value) |
             Q(oficina__icontains=value) |
             Q(placa__icontains=value) |
             Q(technician__username__icontains=value) |

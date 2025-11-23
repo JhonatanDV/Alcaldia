@@ -24,6 +24,12 @@ class DashboardStatsView(APIView):
         """
         Retorna estadísticas generales del sistema
         """
+        # Debug: Log authentication info
+        print(f"=== DASHBOARD STATS VIEW DEBUG ===")
+        print(f"User authenticated: {request.user.is_authenticated}")
+        print(f"User: {request.user}")
+        print(f"Auth header: {request.headers.get('Authorization', 'NOT PRESENT')[:50]}...")
+        
         # Estadísticas generales
         total_maintenances = Maintenance.objects.count()
         total_equipment = Equipment.objects.count()

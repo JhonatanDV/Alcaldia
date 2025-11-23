@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import Layout from '../../../components/Layout';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-interface Group {
+interface Role {
   id: number;
   name: string;
   user_count: number;
@@ -21,12 +22,12 @@ interface User {
   is_staff: boolean;
   is_superuser: boolean;
   date_joined: string;
-  groups: Group[];
+  roles: Role[];  // Ahora se llama roles en toda la aplicación
 }
 
 export default function UsersAdminPage() {
   const [users, setUsers] = useState<User[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -60,6 +61,7 @@ export default function UsersAdminPage() {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user_role');
+    localStorage.removeItem('username');
     window.location.href = '/';
   };
 
@@ -82,13 +84,13 @@ export default function UsersAdminPage() {
 
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [usersRes, groupsRes] = await Promise.all([
+      const [usersRes, rolesRes] = await Promise.all([
         axios.get(`${API_URL}/api/admin/users/`, { headers }),
         axios.get(`${API_URL}/api/admin/groups/`, { headers }),
       ]);
 
       setUsers(usersRes.data);
-      setGroups(groupsRes.data);
+      setRoles(rolesRes.data);
       setLoading(false);
     } catch (err: any) {
       console.error('Error fetching data:', err);
@@ -220,120 +222,76 @@ export default function UsersAdminPage() {
       is_active: user.is_active,
       is_staff: user.is_staff,
       is_superuser: user.is_superuser,
-      group_ids: user.groups.map((g) => g.id),
+      group_ids: user.roles.map((g) => g.id),
     });
   };
 
+  // Removed the multiline comment causing parsing issue by replacing it with single-line comment
+  // Remove the first 'if (loading)' block to avoid duplicate conditions causing syntax error.
+
+  // if (loading) {
+  //   return <div className="p-8">Cargando...</div>;
+  // }
+
   if (loading) {
-    return <div className="p-8">Cargando...</div>;
+    return (
+      <Layout userRole={userRole} onLogout={handleLogout}>
+        <div className="bg-white rounded-lg shadow-sm p-8">
+          <p className="text-gray-600">Cargando usuarios...</p>
+        </div>
+      </Layout>
+    );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <header className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-4">
-              <h1 className="text-2xl font-bold text-gray-900">Gestión de Usuarios</h1>
-            </div>
-          </div>
-        </header>
-        <div className="p-8">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-            {error}
-          </div>
+      <Layout userRole={userRole} onLogout={handleLogout}>
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          {error}
         </div>
-      </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header Navigation */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-gray-900">
-                Sistema de Mantenimiento
+    <>
+    <Layout userRole={userRole} onLogout={handleLogout}>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Gestión de Usuarios
               </h1>
-              {userRole && (
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  userRole === 'admin'
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {userRole === 'admin' ? 'Admin' : 'Técnico'}
-                </span>
-              )}
+              <p className="text-sm text-gray-500 mt-1">
+                Administra usuarios y sus roles
+              </p>
             </div>
-            <div className="flex items-center space-x-4">
-              <a
-                href="/dashboard"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+            <button
+              onClick={() => {
+                resetForm();
+                setShowCreateModal(true);
+              }}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+            >
+              <svg
+                className="mr-2 h-4 w-4"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
               >
-                Dashboard
-              </a>
-              <a
-                href="/equipment/new"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-              >
-                <svg
-                  className="mr-2 h-4 w-4"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                Nuevo Equipo
-              </a>
-              <a
-                href="/maintenance/new"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
-              >
-                <svg
-                  className="mr-2 h-4 w-4"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                Nuevo Mantenimiento
-              </a>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                Cerrar Sesión
-              </button>
-            </div>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              Nuevo Usuario
+            </button>
           </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto p-8">
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-3xl font-bold text-gray-900">Gestión de Usuarios</h2>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-          >
-            Crear Usuario
-          </button>
         </div>
 
         {/* Users Table */}
@@ -351,7 +309,7 @@ export default function UsersAdminPage() {
                   Nombre
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Grupos
+                  Roles
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Estado
@@ -374,7 +332,7 @@ export default function UsersAdminPage() {
                     {user.first_name} {user.last_name}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {user.groups.map((g) => g.name).join(', ') || 'Sin grupos'}
+                    {user.roles.map((g) => g.name).join(', ') || 'Sin roles'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {user.is_active ? (
@@ -391,8 +349,11 @@ export default function UsersAdminPage() {
                     <button
                       onClick={() => openEditModal(user)}
                       className="text-blue-600 hover:text-blue-900 mr-3"
+                      title="Editar usuario"
                     >
-                      Editar
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                      </svg>
                     </button>
                     <button
                       onClick={() => {
@@ -400,20 +361,35 @@ export default function UsersAdminPage() {
                         setShowPasswordModal(true);
                       }}
                       className="text-yellow-600 hover:text-yellow-900 mr-3"
+                      title="Cambiar contraseña"
                     >
-                      Cambiar Contraseña
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+                      </svg>
                     </button>
                     <button
                       onClick={() => handleToggleActive(user.id)}
                       className="text-purple-600 hover:text-purple-900 mr-3"
+                      title={user.is_active ? 'Desactivar' : 'Activar'}
                     >
-                      {user.is_active ? 'Desactivar' : 'Activar'}
+                      {user.is_active ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                        </svg>
+                      )}
                     </button>
                     <button
                       onClick={() => handleDeleteUser(user.id)}
                       className="text-red-600 hover:text-red-900"
+                      title="Eliminar usuario"
                     >
-                      Eliminar
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                      </svg>
                     </button>
                   </td>
                 </tr>
@@ -477,7 +453,7 @@ export default function UsersAdminPage() {
                   />
                 </div>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Grupos</label>
+                  <label className="block text-sm font-medium text-gray-700">Roles</label>
                   <select
                     multiple
                     value={formData.group_ids.map(String)}
@@ -491,9 +467,9 @@ export default function UsersAdminPage() {
                     }
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
                   >
-                    {groups.map((group) => (
-                      <option key={group.id} value={group.id}>
-                        {group.name}
+                    {roles.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name}
                       </option>
                     ))}
                   </select>
@@ -597,7 +573,7 @@ export default function UsersAdminPage() {
                   />
                 </div>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Grupos</label>
+                  <label className="block text-sm font-medium text-gray-700">Roles</label>
                   <select
                     multiple
                     value={formData.group_ids.map(String)}
@@ -611,9 +587,9 @@ export default function UsersAdminPage() {
                     }
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
                   >
-                    {groups.map((group) => (
-                      <option key={group.id} value={group.id}>
-                        {group.name}
+                    {roles.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name}
                       </option>
                     ))}
                   </select>
@@ -730,6 +706,8 @@ export default function UsersAdminPage() {
           </div>
         )}
       </div>
-    </div>
-  );
-}
+    </Layout>
+    </>
+  )
+};
+

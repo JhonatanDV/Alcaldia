@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import MaintenanceForm from '@/components/MaintenanceForm';
+import Layout from '../../../components/Layout';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -25,6 +26,7 @@ export default function NewMaintenancePage() {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user_role');
+    localStorage.removeItem('username');
     window.location.href = '/';
   };
 
@@ -84,95 +86,89 @@ export default function NewMaintenancePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8">Nuevo Mantenimiento</h1>
+      <Layout userRole={userRole} onLogout={handleLogout}>
+        <div className="bg-white rounded-lg shadow-sm p-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">Nuevo Mantenimiento</h1>
           <p className="text-gray-600">Cargando equipos...</p>
         </div>
-      </div>
+      </Layout>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8">Nuevo Mantenimiento</h1>
+      <Layout userRole={userRole} onLogout={handleLogout}>
+        <div className="space-y-6">
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h1 className="text-3xl font-bold text-gray-900">Nuevo Mantenimiento</h1>
+          </div>
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
             {error}
           </div>
         </div>
-      </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header Navigation */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-3 sm:py-4 gap-3 sm:gap-0">
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
-                Sistema de Mantenimiento
-              </h1>
-              {userRole && (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                  userRole === 'admin'
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {userRole === 'admin' ? 'Admin' : 'Técnico'}
-                </span>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
-              <a
-                href="/dashboard"
-                className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 flex-1 sm:flex-initial"
-              >
-                Dashboard
-              </a>
-              {userRole === 'admin' && (
-                <a
-                  href="/equipment/new"
-                  className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-                >
-                  <svg
-                    className="mr-2 h-4 w-4"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                  Nuevo Equipo
-                </a>
-              )}
-              {userRole === 'admin' && (
-                <a
-                  href="/admin/users"
-                  className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
-                >
-                  Usuarios
-                </a>
-              )}
-              <button
-                onClick={handleLogout}
-                className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                Salir
-              </button>
-            </div>
-          </div>
+    <>
+    <Layout userRole={userRole} onLogout={handleLogout}>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <h1 className="text-3xl font-bold text-gray-900">
+            Nuevo Mantenimiento
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Registra un nuevo mantenimiento para un equipo
+          </p>
         </div>
-      </header>
+
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
+          <a
+            href="/dashboard"
+            className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 flex-1 sm:flex-initial"
+          >
+            Dashboard
+          </a>
+          {userRole === 'admin' && (
+            <a
+              href="/equipment/new"
+              className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+            >
+              <svg
+                className="mr-2 h-4 w-4"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              Nuevo Equipo
+            </a>
+          )}
+          {userRole === 'admin' && (
+            <a
+              href="/admin/users"
+              className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
+            >
+              Usuarios
+            </a>
+          )}
+          <button
+            onClick={handleLogout}
+            className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            Salir
+          </button>
+        </div>
+      </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
         <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-4 sm:mb-6 lg:mb-8">Nuevo Mantenimiento</h2>
@@ -234,6 +230,7 @@ export default function NewMaintenancePage() {
           </p>
         </div>
       </div>
-    </div>
+    </Layout>
+    </>
   );
 }

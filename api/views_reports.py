@@ -468,3 +468,89 @@ urlpatterns = [
          name='generate_printer_scanner_report'),
 ]
 """
+
+
+# Nueva vista: Generar reportes con filtros aplicados
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def generate_filtered_reports(request):
+    """
+    Genera múltiples reportes basados en filtros aplicados.
+    
+    Body:
+    {
+        "filters": {
+            "sede_id": 1,
+            "dependencia_id": 2,
+            "subdependencia_id": 3,
+            "scheduled_date_from": "2024-01-01",
+            "scheduled_date_to": "2024-12-31",
+            "maintenance_type": "preventivo",
+            "status": "completed"
+        },
+        "format": "zip"  // o "pdf" para un solo archivo consolidado
+    }
+    
+    Returns:
+        ZIP con todos los PDFs generados o un solo PDF consolidado
+    """
+    from django_filters.rest_framework import DjangoFilterBackend
+    from .filters import MaintenanceFilter
+    from zipfile import ZipFile
+    import tempfile
+    import os
+    
+    try:
+        filters = request.data.get('filters', {})
+        output_format = request.data.get('format', 'zip')
+        
+        # Aplicar filtros
+        queryset = Maintenance.objects.all()
+        filterset = MaintenanceFilter(filters, queryset=queryset)
+        filtered_maintenances = filterset.qs
+        
+        if not filtered_maintenances.exists():
+            return Response({
+                'status': 'error',
+                'message': 'No se encontraron mantenimientos con los filtros aplicados'
+            }, status=404)
+        
+        if output_format == 'zip':
+            # Crear archivo ZIP con todos los PDFs
+            temp_dir = tempfile.mkdtemp()
+            zip_path = os.path.join(temp_dir, 'reportes.zip')
+            
+            with ZipFile(zip_path, 'w') as zipf:
+                for maintenance in filtered_maintenances:
+                    try:
+                        generator = get_report_generator('reportlab')
+                        pdf_buffer = generator.generate(maintenance)
+                        
+                        filename = f'mantenimiento_{maintenance.id}_{maintenance.placa or "SN"}.pdf'
+                        zipf.writestr(filename, pdf_buffer.getvalue())
+                    except Exception as e:
+                        print(f"Error generando reporte para mantenimiento {maintenance.id}: {str(e)}")
+                        continue
+            
+            # Enviar archivo ZIP
+            with open(zip_path, 'rb') as f:
+                response = HttpResponse(f.read(), content_type='application/zip')
+                response['Content-Disposition'] = 'attachment; filename="reportes_filtrados.zip"'
+                
+            # Limpiar archivos temporales
+            os.remove(zip_path)
+            os.rmdir(temp_dir)
+            
+            return response
+        else:
+            return Response({
+                'status': 'error',
+                'message': 'Formato no soportado. Use "zip"'
+            }, status=400)
+            
+    except Exception as e:
+        return Response({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)
+

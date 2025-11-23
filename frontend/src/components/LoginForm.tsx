@@ -44,9 +44,11 @@ export default function LoginForm({ onLogin, onRoleSet }: LoginFormProps) {
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
       localStorage.setItem('user_role', role);
+      localStorage.setItem('username', username); // Save username too
 
       // Verify saved role
       console.log('Role saved to localStorage:', localStorage.getItem('user_role'));
+      console.log('Username saved to localStorage:', localStorage.getItem('username'));
 
       onLogin(access);
       onRoleSet(role);

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import Layout from '../../../components/Layout';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -24,6 +25,7 @@ export default function NewEquipmentPage() {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user_role');
+    localStorage.removeItem('username');
     window.location.href = '/';
   };
 
@@ -77,58 +79,19 @@ export default function NewEquipmentPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header Navigation */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-3 sm:py-4 gap-3 sm:gap-0">
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
-                Sistema de Mantenimiento
-              </h1>
-              {userRole && (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                  userRole === 'admin'
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {userRole === 'admin' ? 'Admin' : 'Técnico'}
-                </span>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
-              <a
-                href="/dashboard"
-                className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 flex-1 sm:flex-initial"
-              >
-                Dashboard
-              </a>
-              <a
-                href="/maintenance/new"
-                className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-green-600 hover:bg-green-700 flex-1 sm:flex-initial whitespace-nowrap"
-              >
-                Nuevo Mant.
-              </a>
-              {userRole === 'admin' && (
-                <a
-                  href="/admin/users"
-                  className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
-                >
-                  Usuarios
-                </a>
-              )}
-              <button
-                onClick={handleLogout}
-                className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                Salir
-              </button>
-            </div>
-          </div>
+    <Layout userRole={userRole} onLogout={handleLogout}>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <h1 className="text-3xl font-bold text-gray-900">
+            Nuevo Equipo
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Registra un nuevo equipo en el sistema
+          </p>
         </div>
-      </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/* Form Section */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 lg:p-8">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Agregar Nuevo Equipo</h2>
 
@@ -311,6 +274,6 @@ export default function NewEquipmentPage() {
           </ul>
         </div>
       </div>
-    </div>
+    </Layout>
   );
 }

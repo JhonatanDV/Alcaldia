@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import Layout from '../../components/Layout';
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
@@ -54,88 +55,98 @@ export default function DashboardPage() {
   const [searchFilters, setSearchFilters] = useState<any>({});
   const [filteredStats, setFilteredStats] = useState<DashboardStats | null>(null);
 
+  const fetchDashboardData = async () => {
+    const token = localStorage.getItem('access_token');
+    const role = localStorage.getItem('user_role') as 'admin' | 'technician' | null;
+    
+    // Debug: Log token information
+    console.log('=== DASHBOARD TOKEN DEBUG ===');
+    console.log('Token exists:', !!token);
+    console.log('Token length:', token?.length);
+    console.log('Token preview:', token?.substring(0, 20) + '...');
+    console.log('User role:', role);
+    
+    if (!token) {
+      console.log('No token found, redirecting to login...');
+      setIsAuthenticated(false);
+      window.location.href = '/';
+      return;
+    }
+
+    setIsAuthenticated(true);
+    setUserRole(role);
+
+    try {
+      const headers = {
+        Authorization: `Bearer ${token}`,
+      };
+      
+      console.log('Request headers:', headers);
+      console.log('Making requests to:', API_URL);
+
+      // Cambiar las URLs para que coincidan con las rutas del backend
+      const [statsResponse, chartsResponse, recentActivityResponse] = await Promise.all([
+        axios.get(`${API_URL}/api/dashboard/stats/`, { headers }),
+        axios.get(`${API_URL}/api/dashboard/charts/`, { headers }),
+        axios.get(`${API_URL}/api/dashboard/recent-activity/`, { headers }),
+      ]);
+
+      // Combinar los datos de las diferentes respuestas
+      const combinedStats = {
+        summary: {
+          total_maintenances: statsResponse.data.overview.total_maintenances,
+          total_equipments: statsResponse.data.overview.total_equipment,
+          total_reports: statsResponse.data.overview.total_reports,
+          total_incidents: statsResponse.data.overview.total_incidents,
+        },
+        maintenances_by_type: statsResponse.data.maintenance_by_type,
+        maintenances_by_month: chartsResponse.data.maintenances_per_month,
+        maintenances_by_dependency: [], // Este dato no está en las vistas actuales
+        maintenances_by_sede: [], // Este dato no está en las vistas actuales
+        recent_maintenances: recentActivityResponse.data.recent_maintenances,
+        top_equipment: chartsResponse.data.equipment_most_maintenances,
+        ratings_distribution: [],
+      };
+
+      const combinedEquipmentStats = {
+        equipment_with_last_maintenance: recentActivityResponse.data.recent_maintenances.map((m: any) => ({
+          id: m.id,
+          placa: m.equipment__code,
+          equipment_type: m.maintenance_type,
+          last_maintenance_date: m.maintenance_date,
+          days_since_maintenance: 0,
+        })),
+        equipment_without_maintenance: recentActivityResponse.data.equipment_needing_maintenance.map((e: any) => ({
+          id: e.id,
+          placa: e.code,
+          equipment_type: 'N/A',
+        })),
+      };
+
+      setStats(combinedStats);
+      setFilteredStats(combinedStats); // Initialize filtered stats
+      setEquipmentStats(combinedEquipmentStats);
+      setLoading(false);
+    } catch (err: any) {
+      console.error('Error fetching dashboard:', err);
+      setError(err.response?.data?.detail || 'Error al cargar el dashboard');
+      setLoading(false);
+    }
+  };
+
+  // Initial fetch on mount
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      // Verificar token antes de hacer cualquier petición
-      const token = localStorage.getItem('access_token');
-      const role = localStorage.getItem('user_role') as 'admin' | 'technician' | null;
-      
-      // Debug: Log ALL localStorage values
-      console.log('=== DASHBOARD DEBUG ===');
-      console.log('access_token exists:', !!token);
-      console.log('user_role raw value:', localStorage.getItem('user_role'));
-      console.log('user_role after cast:', role);
-      console.log('All localStorage keys:', Object.keys(localStorage));
-      
-      if (!token) {
-        setIsAuthenticated(false);
-        window.location.href = '/';
-        return;
-      }
-
-      setIsAuthenticated(true);
-      setUserRole(role);
-
-      // Debug: Log role in dashboard
-      console.log('Dashboard - User role from localStorage:', role);
-      console.log('Dashboard - userRole state after set:', role);
-
-      try {
-        const headers = {
-          Authorization: `Bearer ${token}`,
-        };
-
-        // Cambiar las URLs para que coincidan con las rutas del backend
-        const [statsResponse, chartsResponse, recentActivityResponse] = await Promise.all([
-          axios.get(`${API_URL}/api/dashboard/stats/`, { headers }),
-          axios.get(`${API_URL}/api/dashboard/charts/`, { headers }),
-          axios.get(`${API_URL}/api/dashboard/recent-activity/`, { headers }),
-        ]);
-
-        // Combinar los datos de las diferentes respuestas
-        const combinedStats = {
-          summary: {
-            total_maintenances: statsResponse.data.overview.total_maintenances,
-            total_equipments: statsResponse.data.overview.total_equipment,
-            total_reports: statsResponse.data.overview.total_reports,
-            total_incidents: statsResponse.data.overview.total_incidents,
-          },
-          maintenances_by_type: statsResponse.data.maintenance_by_type,
-          maintenances_by_month: chartsResponse.data.maintenances_per_month,
-          maintenances_by_dependency: [], // Este dato no está en las vistas actuales
-          maintenances_by_sede: [], // Este dato no está en las vistas actuales
-          recent_maintenances: recentActivityResponse.data.recent_maintenances,
-          top_equipment: chartsResponse.data.equipment_most_maintenances,
-          ratings_distribution: [],
-        };
-
-        const combinedEquipmentStats = {
-          equipment_with_last_maintenance: recentActivityResponse.data.recent_maintenances.map((m: any) => ({
-            id: m.id,
-            placa: m.equipment__code,
-            equipment_type: m.maintenance_type,
-            last_maintenance_date: m.maintenance_date,
-            days_since_maintenance: 0,
-          })),
-          equipment_without_maintenance: recentActivityResponse.data.equipment_needing_maintenance.map((e: any) => ({
-            id: e.id,
-            placa: e.code,
-            equipment_type: 'N/A',
-          })),
-        };
-
-        setStats(combinedStats);
-        setFilteredStats(combinedStats); // Initialize filtered stats
-        setEquipmentStats(combinedEquipmentStats);
-        setLoading(false);
-      } catch (err: any) {
-        console.error('Error fetching dashboard:', err);
-        setError(err.response?.data?.detail || 'Error al cargar el dashboard');
-        setLoading(false);
-      }
-    };
-
     fetchDashboardData();
+  }, []);
+
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      fetchDashboardData();
+    }, 30000); // 30 segundos
+
+    // Cleanup interval on unmount
+    return () => clearInterval(refreshInterval);
   }, []);
 
   // Function to apply filters to dashboard stats
@@ -177,42 +188,27 @@ export default function DashboardPage() {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user_role');
+    localStorage.removeItem('username');
     window.location.href = '/';
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <header className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-3 sm:py-4">
-              <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">Dashboard de Mantenimientos</h1>
-            </div>
-          </div>
-        </header>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-          <p className="text-sm sm:text-base text-gray-600">Cargando estadísticas...</p>
+      <Layout userRole={userRole} onLogout={handleLogout}>
+        <div className="bg-white rounded-lg shadow-sm p-8">
+          <p className="text-gray-600">Cargando estadísticas...</p>
         </div>
-      </div>
+      </Layout>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <header className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-4">
-              <h1 className="text-2xl font-bold text-gray-900">Dashboard de Mantenimientos</h1>
-            </div>
-          </div>
-        </header>
-        <div className="max-w-7xl mx-auto p-8">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-            {error}
-          </div>
+      <Layout userRole={userRole} onLogout={handleLogout}>
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          {error}
         </div>
-      </div>
+      </Layout>
     );
   }
 
@@ -221,33 +217,26 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header Navigation */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-3 sm:py-4 gap-3 sm:gap-0">
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
-                Sistema de Mantenimiento
+    <Layout userRole={userRole} onLogout={handleLogout}>
+      <div className="space-y-6">{/* Header con acciones rápidas */}
+        <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                Dashboard de Mantenimientos
               </h1>
-              {userRole && (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                  userRole === 'admin'
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {userRole === 'admin' ? 'Admin' : 'Técnico'}
-                </span>
-              )}
+              <p className="text-sm text-gray-500 mt-1">
+                Vista general del sistema
+              </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               {userRole === 'admin' && (
                 <a
                   href="/equipment/new"
-                  className="inline-flex items-center justify-center px-2 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 whitespace-nowrap"
+                  className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
                 >
                   <svg
-                    className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4"
+                    className="mr-2 h-4 w-4"
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
                     viewBox="0 0 24 24"
@@ -260,16 +249,15 @@ export default function DashboardPage() {
                       d="M12 4v16m8-8H4"
                     />
                   </svg>
-                  <span className="hidden sm:inline">Nuevo Equipo</span>
-                  <span className="sm:hidden">Equipo</span>
+                  Nuevo Equipo
                 </a>
               )}
               <a
                 href="/maintenance/new"
-                className="inline-flex items-center justify-center px-2 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-green-600 hover:bg-green-700 whitespace-nowrap"
+                className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
               >
                 <svg
-                  className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4"
+                  className="mr-2 h-4 w-4"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -282,33 +270,16 @@ export default function DashboardPage() {
                     d="M12 4v16m8-8H4"
                   />
                 </svg>
-                <span className="hidden sm:inline">Nuevo Mantenimiento</span>
-                <span className="sm:hidden">Mant.</span>
+                Nuevo Mantenimiento
               </a>
-              {userRole === 'admin' && (
-                <a
-                  href="/admin/users"
-                  className="inline-flex items-center justify-center px-2 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
-                >
-                  Usuarios
-                </a>
-              )}
-              <button
-                onClick={handleLogout}
-                className="px-2 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                Salir
-              </button>
             </div>
           </div>
         </div>
-      </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
         {/* Search Filters */}
-        <div className="mb-4 sm:mb-6 lg:mb-8 bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
-          <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-3 sm:mb-4">Filtros del Dashboard</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Filtros del Dashboard</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label htmlFor="dashboard-search" className="block text-sm font-medium text-gray-700">
                 Búsqueda General
@@ -725,6 +696,6 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
-    </div>
+    </Layout>
   );
 }
