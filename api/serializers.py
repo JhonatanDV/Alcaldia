@@ -72,8 +72,9 @@ class ReportSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_generado_por_nombre(self, obj):
-        if obj.generado_por:
-            return f"{obj.generado_por.first_name} {obj.generado_por.last_name}".strip() or obj.generado_por.username
+        user = getattr(obj, 'generated_by', None) or getattr(obj, 'generado_por', None)
+        if user:
+            return f"{user.first_name} {user.last_name}".strip() or user.username
         return None
 
 
@@ -231,8 +232,8 @@ class MaintenanceSerializer(serializers.ModelSerializer):
 
 
 class IncidentSerializer(serializers.ModelSerializer):
-    equipo_placa = serializers.CharField(source='equipo.placa', read_only=True)
-    equipo_tipo = serializers.CharField(source='equipo.tipo', read_only=True)
+    equipo_placa = serializers.CharField(source='equipment.code', read_only=True)
+    equipo_tipo = serializers.CharField(source='equipment.name', read_only=True)
     reportado_por_nombre = serializers.SerializerMethodField()
     asignado_a_nombre = serializers.SerializerMethodField()
 
@@ -241,11 +242,13 @@ class IncidentSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_reportado_por_nombre(self, obj):
-        if obj.reportado_por:
-            return f"{obj.reportado_por.first_name} {obj.reportado_por.last_name}".strip() or obj.reportado_por.username
+        user = getattr(obj, 'reported_by', None) or getattr(obj, 'reportado_por', None)
+        if user:
+            return f"{user.first_name} {user.last_name}".strip() or user.username
         return None
 
     def get_asignado_a_nombre(self, obj):
-        if obj.asignado_a:
-            return f"{obj.asignado_a.first_name} {obj.asignado_a.last_name}".strip() or obj.asignado_a.username
+        user = getattr(obj, 'assigned_to', None) or getattr(obj, 'asignado_a', None)
+        if user:
+            return f"{user.first_name} {user.last_name}".strip() or user.username
         return None

@@ -3,6 +3,7 @@ Views for database backup and restore operations.
 """
 import os
 import subprocess
+import shutil
 from datetime import datetime
 from django.conf import settings
 from django.http import FileResponse, JsonResponse, HttpResponse
@@ -37,6 +38,13 @@ def create_backup(request):
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         backup_filename = f'backup_{db_name}_{timestamp}.sql'
         backup_file = os.path.join(backup_dir, backup_filename)
+
+        # Ensure mysqldump is available
+        if shutil.which('mysqldump') is None:
+            return Response({
+                'success': False,
+                'error': 'mysqldump not found on server. Install MySQL client utilities.'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         # Build mysqldump command
         dump_cmd = [

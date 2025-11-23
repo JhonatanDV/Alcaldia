@@ -11,6 +11,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from api.models import AuditLog
+from api.views_user_management import PermissionViewSet
 from django.contrib.auth.models import User
 
 @api_view(['GET'])
@@ -53,6 +54,8 @@ urlpatterns = [
     path('api/test/public/', TestPublicView.as_view(), name='test-public'),
     path('api/user-info/', user_info_view, name='user-info'),
     path('api/audit-logs/', audit_logs_view, name='audit-logs'),
+    # Direct legacy route for permissions used by frontend
+    path('api/permissions/', PermissionViewSet.as_view({'get': 'list'}), name='permissions-direct'),
     path('api/reports/', ReportListView.as_view(), name='reports'),
     path('api/reports/generate/', ReportGenerateView.as_view(), name='reports-generate'),
     path('api/', include(router.urls)),

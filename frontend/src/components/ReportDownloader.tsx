@@ -49,21 +49,6 @@ export default function ReportDownloader({ token, userRole }: ReportDownloaderPr
   const [selectedReports, setSelectedReports] = useState<number[]>([]);
   const [packageLoading, setPackageLoading] = useState(false);
 
-  // Restrict access to admin users only
-  if (userRole !== 'admin') {
-    return (
-      <div className="text-center py-8">
-        <div className="text-red-600 text-lg font-semibold">Acceso Denegado</div>
-        <p className="text-gray-600 mt-2">Solo los administradores pueden acceder a los reportes.</p>
-      </div>
-    );
-  }
-
-  useEffect(() => {
-    fetchReports();
-    fetchEquipments();
-  }, []);
-
   const fetchEquipments = async () => {
     try {
       const response = await axios.get("http://127.0.0.1:8000/api/equipments/", {
@@ -97,9 +82,29 @@ export default function ReportDownloader({ token, userRole }: ReportDownloaderPr
     }
   };
 
-  const generateReport = async (maintenanceId: number) => {
+  useEffect(() => {
+    fetchReports();
+    fetchEquipments();
+  }, []);
+
+  // Restrict access to admin users only (render a message but keep hooks order stable)
+  if (userRole !== 'admin') {
+    return (
+      <div className="text-center py-8">
+        <div className="text-red-600 text-lg font-semibold">Acceso Denegado</div>
+        <p className="text-gray-600 mt-2">Solo los administradores pueden acceder a los reportes.</p>
+      </div>
+    );
+  }
+
+  const generateReport = async (maintenanceId?: number) => {
     setGeneratingReport(true);
     setError("");
+    if (!maintenanceId) {
+      setError('No se especificó un mantenimiento válido para generar el reporte');
+      setGeneratingReport(false);
+      return null;
+    }
 
     try {
       const response = await axios.post(
@@ -146,7 +151,8 @@ export default function ReportDownloader({ token, userRole }: ReportDownloaderPr
 
   const selectAllReports = () => {
     const filteredReports = reports.filter((report) => {
-      const matchesEquipment = !selectedEquipment || String(report.equipment.id) === selectedEquipment;
+      const equipmentIdStr = report.equipment && report.equipment.id ? String(report.equipment.id) : '';
+      const matchesEquipment = !selectedEquipment || equipmentIdStr === selectedEquipment;
       const matchesDate = !selectedDate || (report.report_data?.start_date && report.report_data.start_date === selectedDate);
       const matchesSection = !selectedSection || (
         report.maintenance?.sede === selectedSection ||
@@ -360,7 +366,8 @@ export default function ReportDownloader({ token, userRole }: ReportDownloaderPr
             <div className="max-h-64 overflow-y-auto border border-gray-300 rounded-md p-2 space-y-1">
               {reports
                 .filter((report) => {
-                  const matchesEquipment = !selectedEquipment || String(report.equipment.id) === selectedEquipment;
+                  const equipmentIdStr = report.equipment && report.equipment.id ? String(report.equipment.id) : '';
+                  const matchesEquipment = !selectedEquipment || equipmentIdStr === selectedEquipment;
                   const matchesDate = !selectedDate || (report.report_data?.start_date && report.report_data.start_date === selectedDate);
                   const matchesSection = !selectedSection || (
                     report.maintenance?.sede === selectedSection ||
@@ -370,22 +377,30 @@ export default function ReportDownloader({ token, userRole }: ReportDownloaderPr
                   const matchesType = !selectedType || report.maintenance?.maintenance_type === selectedType;
                   return matchesEquipment && matchesDate && matchesSection && matchesType;
                 })
-                .map((report) => (
-                  <label
-                    key={report.id}
-                    className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedReports.includes(report.id)}
-                      onChange={() => toggleSelectReport(report.id)}
-                      className="mr-3 h-4 w-4"
-                    />
-                    <span className="text-sm">
-                      {report.equipment.code} - {report.equipment.name} ({report.maintenance?.maintenance_type === 'computer' ? 'Cómputo' : 'Impresora/Escáner'}) - {report.maintenance?.oficina || report.maintenance?.dependencia || report.maintenance?.sede || 'Sin sección'} ({report.report_data?.start_date || new Date(report.created_at).toLocaleDateString()})
-                    </span>
-                  </label>
-                ))}
+                .map((report) => {
+                  const equipmentCode = report.equipment?.code ?? (report.report_data?.equipment_code ?? 'Sin equipo');
+                  const equipmentName = report.equipment?.name ?? (report.report_data?.equipment_name ?? 'Sin nombre');
+                  const maintenanceTypeLabel = report.maintenance?.maintenance_type === 'computer' ? 'Cómputo' : 'Impresora/Escáner';
+                  const sectionLabel = report.maintenance?.oficina || report.maintenance?.dependencia || report.maintenance?.sede || 'Sin sección';
+                  const dateLabel = report.report_data?.start_date || (report.created_at ? new Date(report.created_at).toLocaleDateString() : 'Sin fecha');
+
+                  return (
+                    <label
+                      key={report.id}
+                      className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedReports.includes(report.id)}
+                        onChange={() => toggleSelectReport(report.id)}
+                        className="mr-3 h-4 w-4"
+                      />
+                      <span className="text-sm">
+                        {equipmentCode} - {equipmentName} ({maintenanceTypeLabel}) - {sectionLabel} ({dateLabel})
+                      </span>
+                    </label>
+                  );
+                })}
             </div>
 
             {/* Botones de acción */}
