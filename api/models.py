@@ -219,6 +219,37 @@ class ReportTemplate(models.Model):
         return self.name
 
 
+class Template(models.Model):
+    TEMPLATE_TYPES = [
+        ('pdf', 'PDF'),
+        ('excel', 'Excel'),
+    ]
+
+    name = models.CharField(max_length=200)
+    type = models.CharField(max_length=10, choices=TEMPLATE_TYPES)
+    description = models.TextField(blank=True)
+
+    # For HTML-based templates
+    html_content = models.TextField(blank=True, help_text="HTML template with Django template variables")
+    css_content = models.TextField(blank=True, help_text="Optional CSS for the template")
+
+    # Optional uploaded file (e.g., base xlsx or pdf)
+    template_file = models.FileField(upload_to='templates/', blank=True, null=True)
+
+    # Schema of variables expected by the template
+    fields_schema = models.JSONField(default=dict, help_text='JSON schema describing template variables')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'template'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.type})"
+
+
 class Report(models.Model):
     maintenance = models.ForeignKey(Maintenance, on_delete=models.CASCADE, related_name='custom_reports', null=True, blank=True)
     title = models.CharField(max_length=255, default='Reporte sin título')

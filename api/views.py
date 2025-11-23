@@ -134,28 +134,49 @@ class ReportGenerateView(APIView):
             )
 
         try:
-            from .reports import MaintenanceReportPDF
+            from .services.maintenance_serializer import serialize_maintenance
+            from .services.report_generators.pdf_generator import PDFGenerator
+            from .services.report_generators.excel_generator import ExcelGenerator
+            from .services.report_generators.image_generator import ImageGenerator
             from django.core.files.base import ContentFile
             
             # Obtener el mantenimiento
             maintenance = Maintenance.objects.get(id=maintenance_id)
-            
-            # Generar el PDF
-            pdf_generator = MaintenanceReportPDF(maintenance)
-            pdf_buffer = pdf_generator.generate()
-            
-            # Crear el reporte en la base de datos
+
+            # Serializar datos y generar según formato solicitado (por defecto pdf)
+            data = serialize_maintenance(maintenance_id)
+            format_type = request.data.get('format', 'pdf')
+
+            if format_type == 'pdf':
+                # Try to include configured logo if available
+                logo_path = getattr(settings, 'REPORT_LOGO_PATH', None)
+                primary_color = getattr(settings, 'REPORT_PRIMARY_COLOR', None)
+                buffer = PDFGenerator().generate(data, logo_path=logo_path, primary_color=primary_color)
+                content_type = 'application/pdf'
+                ext = 'pdf'
+            elif format_type == 'excel':
+                buffer = ExcelGenerator().generate(data)
+                content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                ext = 'xlsx'
+            elif format_type == 'image':
+                buffer = ImageGenerator().generate(data)
+                content_type = 'image/png'
+                ext = 'png'
+            else:
+                return Response({'error': 'Formato no soportado'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Crear el reporte en la base de datos y guardar archivo
             report = Report.objects.create(
                 maintenance=maintenance,
-                title=f"Reporte de Mantenimiento - {maintenance.equipment.code}",
+                title=f"Reporte de Mantenimiento - {data.get('equipment_code','')}",
                 content=maintenance.description or '',
                 generated_by=request.user
             )
-            
-            # Guardar el archivo PDF
-            pdf_filename = f"reporte_mantenimiento_{maintenance.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-            report.pdf_file.save(pdf_filename, ContentFile(pdf_buffer.getvalue()))
-            
+
+            filename = f"reporte_mantenimiento_{maintenance.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{ext}"
+            report_field = 'pdf_file' if ext == 'pdf' else f'pdf_file'
+            report.pdf_file.save(filename, ContentFile(buffer.read()))
+
             return Response({
                 'id': report.id,
                 'pdf_file': request.build_absolute_uri(report.pdf_file.url) if report.pdf_file else None,

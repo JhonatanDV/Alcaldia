@@ -13,6 +13,15 @@ from .views_dashboard import (
     DashboardRecentActivityView,
     DashboardDepartmentStatsView
 )
+from .views_templates import generate_pdf, generate_excel
+from .views_template_manager import (
+    upload_template,
+    list_templates,
+    get_template,
+    generate_from_template,
+    update_template,
+    delete_template,
+)
 
 router = DefaultRouter()
 router.register('users', UserViewSet)
@@ -28,4 +37,12 @@ urlpatterns = [
     path('dashboard/charts/', DashboardChartsView.as_view(), name='dashboard-charts'),
     path('dashboard/recent-activity/', DashboardRecentActivityView.as_view(), name='dashboard-recent-activity'),
     path('dashboard/department-stats/', DashboardDepartmentStatsView.as_view(), name='dashboard-department-stats'),
+    path('generate-excel/', generate_excel, name='generate-excel'),
+    path('generate-pdf/', generate_pdf, name='generate-pdf'),
+    path('templates/', list_templates, name='list_templates'),
+    path('templates/upload/', upload_template, name='upload_template'),
+    path('templates/<int:template_id>/', get_template, name='get_template'),
+    path('templates/<int:template_id>/generate/', generate_from_template, name='generate_from_template'),
+    path('templates/<int:template_id>/update/', update_template, name='update_template'),
+    path('templates/<int:template_id>/delete/', delete_template, name='delete_template'),
 ]
