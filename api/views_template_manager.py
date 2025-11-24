@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.http import HttpResponse
 from .models import Template
+from .models import ReportTemplate
 import json
 from datetime import datetime
 
@@ -64,9 +65,22 @@ def list_templates(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_template(request, template_id):
+def get_template(request, template_key):
     try:
-        template = Template.objects.get(id=template_id)
+        # Allow numeric id or textual key (name)
+        if isinstance(template_key, str) and template_key.isdigit():
+            template = Template.objects.get(id=int(template_key))
+        else:
+            template = Template.objects.filter(name=template_key).first()
+            if not template:
+                # fallback: try exact match on id as int conversion
+                try:
+                    template = Template.objects.get(id=int(template_key))
+                except Exception:
+                    template = None
+
+        if not template:
+            return Response({'error': 'Plantilla no encontrada'}, status=404)
         template_file_url = None
         try:
             if template.template_file:
@@ -90,9 +104,21 @@ def get_template(request, template_id):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def generate_from_template(request, template_id):
+def generate_from_template(request, template_key):
     try:
-        template = Template.objects.get(id=template_id)
+        # Resolve template by id or name
+        if isinstance(template_key, str) and template_key.isdigit():
+            template = Template.objects.get(id=int(template_key))
+        else:
+            template = Template.objects.filter(name=template_key).first()
+            if not template:
+                try:
+                    template = Template.objects.get(id=int(template_key))
+                except Exception:
+                    template = None
+
+        if not template:
+            return Response({'error': 'Plantilla no encontrada'}, status=404)
         data = request.data.get('data', {})
 
         if template.type == 'pdf':
@@ -149,9 +175,20 @@ def sample_template_data(request):
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
-def update_template(request, template_id):
+def update_template(request, template_key):
     try:
-        template = Template.objects.get(id=template_id)
+        if isinstance(template_key, str) and template_key.isdigit():
+            template = Template.objects.get(id=int(template_key))
+        else:
+            template = Template.objects.filter(name=template_key).first()
+            if not template:
+                try:
+                    template = Template.objects.get(id=int(template_key))
+                except Exception:
+                    template = None
+
+        if not template:
+            return Response({'error': 'Plantilla no encontrada'}, status=404)
 
         template.name = request.data.get('name', template.name)
         template.html_content = request.data.get('html_content', template.html_content)
@@ -168,12 +205,50 @@ def update_template(request, template_id):
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
-def delete_template(request, template_id):
+def delete_template(request, template_key):
     try:
-        template = Template.objects.get(id=template_id)
+        if isinstance(template_key, str) and template_key.isdigit():
+            template = Template.objects.get(id=int(template_key))
+        else:
+            template = Template.objects.filter(name=template_key).first()
+            if not template:
+                try:
+                    template = Template.objects.get(id=int(template_key))
+                except Exception:
+                    template = None
+
+        if not template:
+            return Response({'error': 'Plantilla no encontrada'}, status=404)
         template.delete()
         return Response({'message': 'Plantilla eliminada exitosamente'})
     except Template.DoesNotExist:
         return Response({'error': 'Plantilla no encontrada'}, status=404)
     except Exception as e:
         return Response({'error': str(e)}, status=400)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def active_template(request):
+    """Return the active report template and the available PDF generator info."""
+    active = ReportTemplate.objects.filter(is_active=True).order_by('-updated_at').first()
+    generator = 'reportlab'
+    try:
+        from .services.html_pdf_generator import HTMLPDFGenerator
+        if HTMLPDFGenerator:
+            generator = 'weasyprint'
+    except Exception:
+        generator = 'reportlab'
+
+    if not active:
+        return Response({'template': None, 'generator': generator})
+
+    return Response({
+        'template': {
+            'id': active.id,
+            'name': active.name,
+            'description': active.description,
+            'is_active': active.is_active,
+        },
+        'generator': generator
+    })

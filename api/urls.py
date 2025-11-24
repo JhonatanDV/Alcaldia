@@ -13,6 +13,7 @@ from .views_dashboard import (
     DashboardRecentActivityView,
     DashboardDepartmentStatsView
 )
+from .views_dashboard import FilterOptionsView
 from .views_templates import generate_pdf, generate_excel
 from .views_template_manager import (
     upload_template,
@@ -22,6 +23,7 @@ from .views_template_manager import (
     update_template,
     delete_template,
     sample_template_data,
+    active_template,
 )
 
 from .views_user_management import UserManagementViewSet
@@ -45,8 +47,12 @@ urlpatterns = [
     path('templates/', list_templates, name='list_templates'),
     path('templates/upload/', upload_template, name='upload_template'),
     path('templates/sample-data/', sample_template_data, name='sample_template_data'),
-    path('templates/<int:template_id>/', get_template, name='get_template'),
-    path('templates/<int:template_id>/generate/', generate_from_template, name='generate_from_template'),
-    path('templates/<int:template_id>/update/', update_template, name='update_template'),
-    path('templates/<int:template_id>/delete/', delete_template, name='delete_template'),
+    path('templates/active/', active_template, name='active_template'),
+    # Accept either numeric id or textual key (name/slug). Backend will resolve.
+    path('templates/<str:template_key>/', get_template, name='get_template'),
+    path('templates/<str:template_key>/generate/', generate_from_template, name='generate_from_template'),
+    path('templates/<str:template_key>/update/', update_template, name='update_template'),
+    path('templates/<str:template_key>/delete/', delete_template, name='delete_template'),
+    # Dashboard filter options
+    path('dashboard/filter-options/', FilterOptionsView.as_view(), name='dashboard-filter-options'),
 ]

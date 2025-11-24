@@ -387,12 +387,13 @@ class IncidentReportPDF:
         elements.append(title)
         elements.append(Spacer(1, 0.3*inch))
         
-        # Incident data
+        # Incident data (use model fields)
+        equipment_repr = self.incident.equipment.serial_number if getattr(self.incident, 'equipment', None) and getattr(self.incident.equipment, 'serial_number', None) else (self.incident.equipment.name if getattr(self.incident, 'equipment', None) else 'N/A')
         data = [
-            ['Equipo:', self.incident.equipo.placa, 'Tipo:', self.incident.get_tipo_incidente_display()],
-            ['Estado:', self.incident.get_estado_display(), 'Prioridad:', self.incident.get_prioridad_display()],
-            ['Fecha Reporte:', self.incident.fecha_reporte.strftime('%d/%m/%Y %H:%M'), 
-             'Reportado por:', self.incident.reportado_por.get_full_name() if self.incident.reportado_por else 'N/A'],
+            ['Equipo:', equipment_repr, 'Severidad:', self.incident.get_severity_display() if hasattr(self.incident, 'get_severity_display') else (self.incident.severity if getattr(self.incident, 'severity', None) else 'N/A')],
+            ['Estado:', self.incident.get_status_display() if hasattr(self.incident, 'get_status_display') else (self.incident.status if getattr(self.incident, 'status', None) else 'N/A'), ' ', ' '],
+            ['Fecha Reporte:', self.incident.incident_date.strftime('%d/%m/%Y %H:%M') if getattr(self.incident, 'incident_date', None) else 'N/A', 
+             'Reportado por:', self.incident.reported_by.get_full_name() if getattr(self.incident, 'reported_by', None) else 'N/A'],
         ]
         
         table = Table(data, colWidths=[2*cm, 6*cm, 2*cm, 6*cm])
@@ -410,14 +411,15 @@ class IncidentReportPDF:
         # Description
         desc_heading = Paragraph("Descripción:", styles['Heading2'])
         elements.append(desc_heading)
-        desc = Paragraph(self.incident.descripcion, styles['Normal'])
+        desc = Paragraph(self.incident.description or '', styles['Normal'])
         elements.append(desc)
         
-        if self.incident.solucion:
+        if getattr(self.incident, 'resolution', None):
             elements.append(Spacer(1, 0.2*inch))
             sol_heading = Paragraph("Solución:", styles['Heading2'])
             elements.append(sol_heading)
-            sol = Paragraph(self.incident.solucion, styles['Normal'])
+            sol = Paragraph(self.incident.resolution or '', styles['Normal'])
+            elements.append(sol)
             elements.append(sol)
         
         doc.build(elements, onFirstPage=self._header_footer, onLaterPages=self._header_footer)
@@ -458,8 +460,9 @@ class BatchMaintenanceReportPDF:
             report_gen = MaintenanceReportPDF(maintenance)
             # Note: This is simplified - in production you'd merge the PDFs properly
             
+            placa_repr = maintenance.placa or (maintenance.equipment.serial_number if getattr(maintenance, 'equipment', None) and getattr(maintenance.equipment, 'serial_number', None) else (maintenance.equipment.name if getattr(maintenance, 'equipment', None) else maintenance.id))
             heading = Paragraph(
-                f"Reporte {idx + 1}: {maintenance.equipo.placa}",
+                f"Reporte {idx + 1}: {placa_repr}",
                 styles['Heading1']
             )
             elements.append(heading)

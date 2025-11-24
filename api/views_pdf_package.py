@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from .models import Maintenance, Incident, Equipment
-from .reports import get_report_generator
+from .reports import get_report_generator, IncidentReportPDF, MaintenanceReportPDF
 from .filters import MaintenanceFilter
 
 
@@ -55,8 +55,8 @@ class PackageMaintenancePDFsView(APIView):
                     pdf_buffer = generator.generate(maintenance)
                     
                     # Add to ZIP with descriptive filename
-                    placa = maintenance.placa or maintenance.equipment.serial_number or maintenance.id
-                    fecha = maintenance.scheduled_date.strftime('%Y%m%d')
+                    placa = maintenance.placa or (maintenance.equipment.serial_number if maintenance.equipment else maintenance.id)
+                    fecha = maintenance.scheduled_date.strftime('%Y%m%d') if getattr(maintenance, 'scheduled_date', None) else 'unknown'
                     filename = f"mantenimiento_{placa}_{fecha}.pdf"
                     zip_file.writestr(filename, pdf_buffer.getvalue())
                     
@@ -94,12 +94,19 @@ class PackageIncidentPDFsView(APIView):
                 try:
                     incident = Incident.objects.get(id=incident_id)
                     
-                    # Generate PDF
-                    pdf_generator = IncidentReportPDF(incident)
-                    pdf_buffer = pdf_generator.generate()
-                    
+                    # Generate PDF using IncidentReportPDF if available
+                    try:
+                        pdf_generator = IncidentReportPDF(incident)
+                        pdf_buffer = pdf_generator.generate()
+                    except Exception:
+                        # fallback to report generator that may accept maintenance-like objects
+                        gen = get_report_generator('reportlab')
+                        pdf_buffer = gen.generate(incident)
+
                     # Add to ZIP
-                    filename = f"incidente_{incident.equipo.placa}_{incident.fecha_reporte.strftime('%Y%m%d')}.pdf"
+                    placa = incident.equipment.serial_number if incident.equipment else 'unknown'
+                    fecha = incident.incident_date.strftime('%Y%m%d') if getattr(incident, 'incident_date', None) else 'unknown'
+                    filename = f"incidente_{placa}_{fecha}.pdf"
                     zip_file.writestr(filename, pdf_buffer.getvalue())
                     
                 except Incident.DoesNotExist:
@@ -137,20 +144,34 @@ class PackageEquipmentPDFsView(APIView):
         
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
             # Add maintenance PDFs
-            maintenances = Maintenance.objects.filter(equipo=equipment)
+            maintenances = Maintenance.objects.filter(equipment=equipment)
             for maintenance in maintenances:
-                pdf_generator = MaintenanceReportPDF(maintenance)
-                pdf_buffer = pdf_generator.generate()
-                filename = f"mantenimiento_{maintenance.fecha_mantenimiento.strftime('%Y%m%d')}.pdf"
-                zip_file.writestr(filename, pdf_buffer.getvalue())
+                try:
+                    gen = get_report_generator('reportlab')
+                    pdf_buffer = gen.generate(maintenance)
+                    fecha = maintenance.scheduled_date.strftime('%Y%m%d') if getattr(maintenance, 'scheduled_date', None) else 'unknown'
+                    filename = f"mantenimiento_{equipment.serial_number or equipment.code or equipment.id}_{fecha}.pdf"
+                    zip_file.writestr(filename, pdf_buffer.getvalue())
+                except Exception as e:
+                    print(f"Error generating maintenance PDF {maintenance.id}: {e}")
+                    continue
             
             # Add incident PDFs
-            incidents = Incident.objects.filter(equipo=equipment)
+            incidents = Incident.objects.filter(equipment=equipment)
             for incident in incidents:
-                pdf_generator = IncidentReportPDF(incident)
-                pdf_buffer = pdf_generator.generate()
-                filename = f"incidente_{incident.fecha_reporte.strftime('%Y%m%d')}.pdf"
-                zip_file.writestr(filename, pdf_buffer.getvalue())
+                try:
+                    try:
+                        pdf_generator = IncidentReportPDF(incident)
+                        pdf_buffer = pdf_generator.generate()
+                    except Exception:
+                        gen = get_report_generator('reportlab')
+                        pdf_buffer = gen.generate(incident)
+                    fecha = incident.incident_date.strftime('%Y%m%d') if getattr(incident, 'incident_date', None) else 'unknown'
+                    filename = f"incidente_{equipment.serial_number or equipment.code or equipment.id}_{fecha}.pdf"
+                    zip_file.writestr(filename, pdf_buffer.getvalue())
+                except Exception as e:
+                    print(f"Error generating incident PDF {incident.id}: {e}")
+                    continue
         
         zip_buffer.seek(0)
         response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
@@ -189,25 +210,41 @@ class PackageDateRangePDFsView(APIView):
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
             if include_maintenances:
                 maintenances = Maintenance.objects.filter(
-                    fecha_mantenimiento__gte=start_date,
-                    fecha_mantenimiento__lte=end_date
+                    scheduled_date__gte=start_date,
+                    scheduled_date__lte=end_date
                 )
                 for maintenance in maintenances:
-                    pdf_generator = MaintenanceReportPDF(maintenance)
-                    pdf_buffer = pdf_generator.generate()
-                    filename = f"mantenimiento_{maintenance.equipo.placa}_{maintenance.fecha_mantenimiento.strftime('%Y%m%d')}.pdf"
-                    zip_file.writestr(filename, pdf_buffer.getvalue())
+                    try:
+                        gen = get_report_generator('reportlab')
+                        pdf_buffer = gen.generate(maintenance)
+                        placa = maintenance.placa or (maintenance.equipment.serial_number if maintenance.equipment else maintenance.id)
+                        fecha = maintenance.scheduled_date.strftime('%Y%m%d') if getattr(maintenance, 'scheduled_date', None) else 'unknown'
+                        filename = f"mantenimiento_{placa}_{fecha}.pdf"
+                        zip_file.writestr(filename, pdf_buffer.getvalue())
+                    except Exception as e:
+                        print(f"Error generating maintenance PDF {maintenance.id}: {e}")
+                        continue
             
             if include_incidents:
                 incidents = Incident.objects.filter(
-                    fecha_reporte__gte=start_date,
-                    fecha_reporte__lte=end_date
+                    incident_date__gte=start_date,
+                    incident_date__lte=end_date
                 )
                 for incident in incidents:
-                    pdf_generator = IncidentReportPDF(incident)
-                    pdf_buffer = pdf_generator.generate()
-                    filename = f"incidente_{incident.equipo.placa}_{incident.fecha_reporte.strftime('%Y%m%d')}.pdf"
-                    zip_file.writestr(filename, pdf_buffer.getvalue())
+                    try:
+                        try:
+                            pdf_generator = IncidentReportPDF(incident)
+                            pdf_buffer = pdf_generator.generate()
+                        except Exception:
+                            gen = get_report_generator('reportlab')
+                            pdf_buffer = gen.generate(incident)
+                        placa = incident.equipment.serial_number if incident.equipment else 'unknown'
+                        fecha = incident.incident_date.strftime('%Y%m%d') if getattr(incident, 'incident_date', None) else 'unknown'
+                        filename = f"incidente_{placa}_{fecha}.pdf"
+                        zip_file.writestr(filename, pdf_buffer.getvalue())
+                    except Exception as e:
+                        print(f"Error generating incident PDF {incident.id}: {e}")
+                        continue
         
         zip_buffer.seek(0)
         response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')

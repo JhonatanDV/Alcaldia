@@ -11,6 +11,9 @@ from django.db.models import Count, Q, Avg
 from django.utils import timezone
 from datetime import timedelta
 from api.models import Maintenance, Equipment, Incident
+from api.models import Dependencia, Sede
+from django.contrib.auth import get_user_model
+User = get_user_model()
 
 
 class DashboardStatsView(APIView):
@@ -19,6 +22,33 @@ class DashboardStatsView(APIView):
     """
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
+
+    def _build_filters(self, request):
+        """Parse query params into a Q-friendly filter dict."""
+        filters = {}
+        start = request.query_params.get('start_date')
+        end = request.query_params.get('end_date')
+        if start:
+            filters['scheduled_date__gte'] = start
+        if end:
+            filters['scheduled_date__lte'] = end
+
+        sede = request.query_params.get('sede')
+        if sede:
+            filters['sede_rel__nombre'] = sede
+
+        dependencia = request.query_params.get('dependencia')
+        if dependencia:
+            filters['dependencia_rel__nombre'] = dependencia
+
+        maintenance_type = request.query_params.get('maintenance_type')
+        if maintenance_type:
+            filters['maintenance_type'] = maintenance_type
+
+        technician = request.query_params.get('technician')
+        if technician and technician.isdigit():
+            filters['technician__id'] = int(technician)
+        return filters
 
     def get(self, request):
         """
@@ -31,9 +61,11 @@ class DashboardStatsView(APIView):
         print(f"Auth header: {request.headers.get('Authorization', 'NOT PRESENT')[:50]}...")
         
         # Estadísticas generales
-        total_maintenances = Maintenance.objects.count()
+        filters = self._build_filters(request)
+
+        total_maintenances = Maintenance.objects.filter(**filters).count() if filters else Maintenance.objects.count()
         total_equipment = Equipment.objects.count()
-        total_reports = Maintenance.objects.filter(custom_reports__isnull=False).distinct().count()
+        total_reports = Maintenance.objects.filter(**filters).filter(custom_reports__isnull=False).distinct().count() if filters else Maintenance.objects.filter(custom_reports__isnull=False).distinct().count()
         total_incidents = Incident.objects.count()
         
         # NOTE: breakdowns by status/type have been removed from the simplified dashboard API
@@ -72,6 +104,7 @@ class DashboardChartsView(APIView):
         """
         Datos para gráficos del dashboard
         """
+        filters = DashboardStatsView()._build_filters(request)
         # Mantenimientos por mes (últimos 12 meses)
         today = timezone.now()
         maintenances_per_month = []
@@ -80,10 +113,10 @@ class DashboardChartsView(APIView):
             month_start = (today.replace(day=1) - timedelta(days=i*30)).replace(day=1)
             month_end = (month_start + timedelta(days=32)).replace(day=1)
             
-            count = Maintenance.objects.filter(
-                scheduled_date__gte=month_start,
-                scheduled_date__lt=month_end
-            ).count()
+            q = Maintenance.objects.filter(scheduled_date__gte=month_start, scheduled_date__lt=month_end)
+            if filters:
+                q = q.filter(**filters)
+            count = q.count()
             
             maintenances_per_month.append({
                 'month': month_start.strftime('%b %Y'),
@@ -91,9 +124,11 @@ class DashboardChartsView(APIView):
             })
         
         # Equipos con más mantenimientos
-        equipment_most_maintenances = Equipment.objects.annotate(
-            maintenance_count=Count('maintenances')
-        ).order_by('-maintenance_count')[:10]
+        equipment_q = Equipment.objects.annotate(maintenance_count=Count('maintenances'))
+        if filters:
+            # filter equipments by maintenances matching filters
+            equipment_q = equipment_q.filter(maintenances__in=Maintenance.objects.filter(**filters)).distinct()
+        equipment_most_maintenances = equipment_q.order_by('-maintenance_count')[:10]
         
         equipment_data = [{
             'equipment_name': eq.name,
@@ -116,10 +151,12 @@ class DashboardRecentActivityView(APIView):
         """
         Actividad reciente del dashboard
         """
+        filters = DashboardStatsView()._build_filters(request)
         # Mantenimientos recientes
-        recent_maintenances = Maintenance.objects.select_related(
-            'equipment', 'technician'
-        ).order_by('-scheduled_date')[:10]
+        recent_q = Maintenance.objects.select_related('equipment', 'technician').order_by('-scheduled_date')
+        if filters:
+            recent_q = recent_q.filter(**filters)
+        recent_maintenances = recent_q[:10]
         
         recent_data = [{
             'id': m.id,
@@ -180,4 +217,26 @@ class DashboardDepartmentStatsView(APIView):
             'equipment_by_department': list(equipment_by_dept),
             'maintenances_by_department': list(maintenances_by_dept),
             'incidents_by_department': list(incidents_by_dept),
+        })
+
+
+class FilterOptionsView(APIView):
+    """Return distinct values for dashboard filter dropdowns."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        sedes = list(Sede.objects.filter().values_list('nombre', flat=True).distinct())
+        dependencias = list(Dependencia.objects.filter().values_list('nombre', flat=True).distinct())
+        maintenance_types = [t[0] for t in Maintenance.MAINTENANCE_TYPES]
+        statuses = [s[0] for s in Maintenance.STATUS_CHOICES]
+        technicians = list(User.objects.filter(is_active=True).values('id', 'first_name', 'last_name'))
+
+        techs = [{'id': t['id'], 'name': f"{t['first_name']} {t['last_name']}".strip()} for t in technicians]
+
+        return Response({
+            'sedes': sedes,
+            'dependencias': dependencias,
+            'maintenance_types': maintenance_types,
+            'statuses': statuses,
+            'technicians': techs,
         })
