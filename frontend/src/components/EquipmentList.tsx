@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+
 interface Equipment {
   id: number;
   code: string;
@@ -54,7 +56,13 @@ export default function EquipmentList({
     code: "",
     name: "",
     location: "",
+    sede: "",
+    dependencia: "",
+    subdependencia: "",
   });
+  const [sedes, setSedes] = useState<any[]>([]);
+  const [dependencias, setDependencias] = useState<any[]>([]);
+  const [subdependencias, setSubdependencias] = useState<any[]>([]);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState("");
   
@@ -72,6 +80,9 @@ export default function EquipmentList({
   useEffect(() => {
     fetchEquipments();
 
+    // fetch sedes for create modal selects
+    fetchSedes();
+
     // Escuchar el evento de mantenimiento creado para refrescar la lista
     const handleMaintenanceCreated = () => {
       fetchEquipments();
@@ -83,6 +94,38 @@ export default function EquipmentList({
       window.removeEventListener('maintenanceCreated', handleMaintenanceCreated);
     };
   }, [token]);
+
+  const fetchSedes = async () => {
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const res = await axios.get(`${API_URL}/api/config/sedes/`, { headers });
+      setSedes(res.data.results || res.data || []);
+    } catch (err) {
+      console.error('Error cargando sedes', err);
+    }
+  };
+
+  const fetchDependencias = async (sedeId: string | number) => {
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const res = await axios.get(`${API_URL}/api/config/dependencias/?sede=${sedeId}`, { headers });
+      setDependencias(res.data.results || res.data || []);
+    } catch (err) {
+      console.error('Error cargando dependencias', err);
+      setDependencias([]);
+    }
+  };
+
+  const fetchSubdependencias = async (dependenciaId: string | number) => {
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const res = await axios.get(`${API_URL}/api/config/subdependencias/?dependencia=${dependenciaId}`, { headers });
+      setSubdependencias(res.data.results || res.data || []);
+    } catch (err) {
+      console.error('Error cargando subdependencias', err);
+      setSubdependencias([]);
+    }
+  };
 
   const fetchEquipments = async () => {
     try {
@@ -135,15 +178,20 @@ export default function EquipmentList({
     setCreateError("");
 
     try {
+      const payload: any = {
+        ...createFormData,
+        sede_rel: createFormData.sede || null,
+        dependencia_rel: createFormData.dependencia || null,
+        subdependencia: createFormData.subdependencia || null,
+      };
+
       await axios.post(
-        "http://127.0.0.1:8000/api/equipments/",
-        createFormData,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        `${API_URL}/api/equipments/`,
+        payload,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       setShowCreateModal(false);
-      setCreateFormData({ code: "", name: "", location: "" });
+      setCreateFormData({ code: "", name: "", location: "", sede: "", dependencia: "", subdependencia: "" });
       fetchEquipments(); // Refresh the list
     } catch (err: any) {
       setCreateError(err.response?.data?.detail || "Error al crear equipo");
@@ -236,6 +284,62 @@ export default function EquipmentList({
                     value={createFormData.code}
                     onChange={handleInputChange}
                   />
+                </div>
+                <div>
+                  <label htmlFor="sede" className="block text-sm font-medium text-gray-700">Sede</label>
+                  <select
+                    id="sede"
+                    name="sede"
+                    value={createFormData.sede}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setCreateFormData((prev) => ({ ...prev, sede: v, dependencia: '', subdependencia: '' }));
+                      if (v) fetchDependencias(v);
+                      else setDependencias([]);
+                      setSubdependencias([]);
+                    }}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
+                  >
+                    <option value="">Seleccione una sede (opcional)</option>
+                    {sedes.map((s) => (
+                      <option key={s.id} value={s.id}>{s.nombre || s.name || s.label || s.id}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="dependencia" className="block text-sm font-medium text-gray-700">Dependencia</label>
+                  <select
+                    id="dependencia"
+                    name="dependencia"
+                    value={createFormData.dependencia}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setCreateFormData((prev) => ({ ...prev, dependencia: v, subdependencia: '' }));
+                      if (v) fetchSubdependencias(v);
+                      else setSubdependencias([]);
+                    }}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
+                  >
+                    <option value="">Seleccione una dependencia (opcional)</option>
+                    {dependencias.map((d) => (
+                      <option key={d.id} value={d.id}>{d.nombre || d.name || d.label || d.id}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="subdependencia" className="block text-sm font-medium text-gray-700">Subdependencia</label>
+                  <select
+                    id="subdependencia"
+                    name="subdependencia"
+                    value={createFormData.subdependencia}
+                    onChange={(e) => setCreateFormData((prev) => ({ ...prev, subdependencia: e.target.value }))}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
+                  >
+                    <option value="">Seleccione una subdependencia (opcional)</option>
+                    {subdependencias.map((s) => (
+                      <option key={s.id} value={s.id}>{s.nombre || s.name || s.label || s.id}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label htmlFor="name" className="block text-sm font-medium text-gray-700">

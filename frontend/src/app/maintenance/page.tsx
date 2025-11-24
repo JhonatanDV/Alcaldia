@@ -114,10 +114,6 @@ export default function MaintenanceListPage() {
         <div className="bg-white rounded-lg shadow-sm border p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Listado</h2>
-            <div className="flex items-center gap-2">
-              <a href="/maintenance/new" className="px-3 py-1.5 bg-indigo-600 text-white rounded-md text-sm">Nuevo Mantenimiento</a>
-              <a href="/dashboard" className="px-3 py-1.5 border border-gray-300 rounded-md text-sm">Dashboard</a>
-            </div>
           </div>
 
           <div className="overflow-x-auto">

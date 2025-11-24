@@ -43,6 +43,25 @@ export default function Layout({ children, userRole, onLogout }: LayoutProps) {
     return () => cleanup();
   }, [onLogout, handleWarn]);
 
+  useEffect(() => {
+    // Configure pdfjs worker to avoid "Setting up fake worker failed" errors.
+    // We expect `pdf.worker.min.js` to be served from the Next `public/` folder
+    // at `/pdf.worker.min.js`. Copy the worker from `node_modules/pdfjs-dist/...`
+    // to `frontend/public/pdf.worker.min.js` (see repo instructions).
+    if (typeof window !== 'undefined') {
+      import('pdfjs-dist/legacy/build/pdf').then((pdfjs) => {
+        try {
+          // Serve worker from public root
+          pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+        } catch (e) {
+          // ignore
+        }
+      }).catch(() => {
+        // pdfjs not installed; ignore
+      });
+    }
+  }, []);
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       {isAuthenticated && <Sidebar userRole={userRole} onLogout={onLogout} />}

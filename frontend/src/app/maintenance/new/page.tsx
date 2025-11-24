@@ -124,50 +124,7 @@ export default function NewMaintenancePage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
-          <a
-            href="/dashboard"
-            className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 flex-1 sm:flex-initial"
-          >
-            Dashboard
-          </a>
-          {userRole === 'admin' && (
-            <a
-              href="/equipment/new"
-              className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-            >
-              <svg
-                className="mr-2 h-4 w-4"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              Nuevo Equipo
-            </a>
-          )}
-          {userRole === 'admin' && (
-            <a
-              href="/admin/users"
-              className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent rounded-md shadow-sm text-xs sm:text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
-            >
-              Usuarios
-            </a>
-          )}
-          <button
-            onClick={handleLogout}
-            className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
-          >
-            Salir
-          </button>
-        </div>
+        {/* Quick actions removed — use Sidebar for navigation */}
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">

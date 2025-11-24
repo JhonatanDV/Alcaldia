@@ -17,9 +17,14 @@ export default function NewEquipmentPage() {
     serial_number: '',
     brand: '',
     model: '',
-    location: '',
+    sede: '',
     dependencia: '',
+    subdependencia: '',
+    location: '',
   });
+  const [sedes, setSedes] = useState<any[]>([]);
+  const [dependencias, setDependencias] = useState<any[]>([]);
+  const [subdependencias, setSubdependencias] = useState<any[]>([]);
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
@@ -46,6 +51,45 @@ export default function NewEquipmentPage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const fetchSedes = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await axios.get(`${API_URL}/api/config/sedes/`, { headers });
+      setSedes(res.data || []);
+    } catch (err) {
+      console.error('Error cargando sedes', err);
+    }
+  };
+
+  const fetchDependencias = async (sedeId: string | number) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await axios.get(`${API_URL}/api/config/dependencias/?sede=${sedeId}`, { headers });
+      setDependencias(res.data || []);
+    } catch (err) {
+      console.error('Error cargando dependencias', err);
+      setDependencias([]);
+    }
+  };
+
+  const fetchSubdependencias = async (dependenciaId: string | number) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await axios.get(`${API_URL}/api/config/subdependencias/?dependencia=${dependenciaId}`, { headers });
+      setSubdependencias(res.data || []);
+    } catch (err) {
+      console.error('Error cargando subdependencias', err);
+      setSubdependencias([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchSedes();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -60,11 +104,18 @@ export default function NewEquipmentPage() {
       }
 
       const headers = { Authorization: `Bearer ${token}` };
-      
-      await axios.post(`${API_URL}/api/equipments/`, formData, { headers });
+
+      const payload: any = {
+        ...formData,
+        sede_rel: formData.sede || null,
+        dependencia_rel: formData.dependencia || null,
+        subdependencia: formData.subdependencia || null,
+      };
+
+      await axios.post(`${API_URL}/api/equipments/`, payload, { headers });
       
       setSuccess(true);
-      setFormData({ code: '', name: '', serial_number: '', brand: '', model: '', location: '', dependencia: '' });
+      setFormData({ code: '', name: '', serial_number: '', brand: '', model: '', sede: '', dependencia: '', subdependencia: '', location: '' });
       
       // Redirect to dashboard after 2 seconds
       setTimeout(() => {
@@ -210,45 +261,95 @@ export default function NewEquipmentPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               <div>
-                <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">
-                  Ubicación
+                <label htmlFor="sede" className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                  Sede
                 </label>
-                <input
-                  type="text"
-                  id="location"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleInputChange}
+                <select
+                  id="sede"
+                  name="sede"
+                  value={formData.sede}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData((prev) => ({ ...prev, sede: value, dependencia: '', subdependencia: '' }));
+                    if (value) fetchDependencias(value);
+                    else setDependencias([]);
+                    setSubdependencias([]);
+                  }}
                   className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="Ej: Oficina principal, piso 2"
-                />
-                <p className="mt-1 text-xs sm:text-sm text-gray-500">
-                  Ubicación física (opcional)
-                </p>
+                >
+                  <option value="">-- Seleccione una sede --</option>
+                  {sedes.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name || s.nombre || s.label || s.id}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs sm:text-sm text-gray-500">Seleccione la sede del equipo (opcional)</p>
               </div>
 
               <div>
                 <label htmlFor="dependencia" className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                   Dependencia
                 </label>
-                <input
-                  type="text"
+                <select
                   id="dependencia"
                   name="dependencia"
                   value={formData.dependencia}
-                  onChange={handleInputChange}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData((prev) => ({ ...prev, dependencia: value, subdependencia: '' }));
+                    if (value) fetchSubdependencias(value);
+                    else setSubdependencias([]);
+                  }}
                   className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="Ej: Sistemas, Contabilidad"
-                />
-                <p className="mt-1 text-xs sm:text-sm text-gray-500">
-                  Área o departamento (opcional)
-                </p>
+                >
+                  <option value="">-- Seleccione una dependencia --</option>
+                  {dependencias.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name || d.nombre || d.label || d.id}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs sm:text-sm text-gray-500">Área o departamento (opcional)</p>
               </div>
+            </div>
+
+            <div>
+              <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                Ubicación
+              </label>
+              <input
+                type="text"
+                id="location"
+                name="location"
+                value={formData.location}
+                onChange={handleInputChange}
+                className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="Ej: Oficina principal, piso 2"
+              />
+              <p className="mt-1 text-xs sm:text-sm text-gray-500">
+                Ubicación física (opcional)
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="subdependencia" className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                Subdependencia
+              </label>
+              <select
+                id="subdependencia"
+                name="subdependencia"
+                value={formData.subdependencia}
+                onChange={(e) => setFormData((prev) => ({ ...prev, subdependencia: e.target.value }))}
+                className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                <option value="">-- Seleccione una subdependencia --</option>
+                {subdependencias.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name || s.nombre || s.label || s.id}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs sm:text-sm text-gray-500">Subárea o sección (opcional)</p>
             </div>
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 sm:gap-4 pt-4 sm:pt-6 border-t">
               <a
-                href="/dashboard"
+                href="/equipment"
                 className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base text-center border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 Cancelar

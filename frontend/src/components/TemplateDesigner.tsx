@@ -22,6 +22,9 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState<{ key: string; offsetX: number; offsetY: number } | null>(null);
+  const renderTaskRef = useRef<any>(null);
+  const [zoom, setZoom] = useState<number>(1.5);
+  const [activeField, setActiveField] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchTemplate = async () => {
@@ -73,11 +76,13 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
       const textWidth = metrics.width || 40;
       const textHeight = fontSize + 4;
 
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      // Use indigo background with white text for better contrast
+      ctx.fillStyle = 'rgba(59,130,246,0.95)'; // indigo-500
       ctx.fillRect(x, y, textWidth + padding * 2, textHeight + padding * 2);
-      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = 1;
       ctx.strokeRect(x, y, textWidth + padding * 2, textHeight + padding * 2);
-      ctx.fillStyle = 'rgba(0,0,0,0.95)';
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
       ctx.fillText(text, x + padding, y + padding);
     });
 
@@ -122,25 +127,56 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
       const loadingTask = pdfjsLib.getDocument(pdfUrl);
       const pdf = await loadingTask.promise;
       const page = await pdf.getPage(1);
-      const viewport = page.getViewport({ scale: 1.5 });
+      const viewport = page.getViewport({ scale: zoom });
+
+      // Cancel any previous render task to avoid "same canvas" errors
+      if (renderTaskRef.current && typeof renderTaskRef.current.cancel === 'function') {
+        try {
+          renderTaskRef.current.cancel();
+        } catch (e) {
+          // ignore cancellation errors
+        }
+        renderTaskRef.current = null;
+      }
+
       canvas.width = viewport.width;
       canvas.height = viewport.height;
+      // Ensure no leftover transforms
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+
       const renderContext = {
         canvasContext: ctx,
         viewport,
       };
-      await page.render(renderContext).promise;
+      const renderTask = page.render(renderContext);
+      renderTaskRef.current = renderTask;
+      await renderTask.promise;
+      renderTaskRef.current = null;
       if (previewOnCanvas) drawOverlay();
-    } catch (err) {
-      console.error(err);
-      setError('Error renderizando plantilla');
+    } catch (err: any) {
+      // Suppress expected cancellation errors from pdfjs when we intentionally
+      // cancel a previous render task (RenderingCancelledException). Don't
+      // surface them as user-facing errors.
+      if (err && (err.name === 'RenderingCancelledException' || err.message?.includes('Rendering cancelled'))) {
+        // ignore
+      } else {
+        console.error(err);
+        setError('Error renderizando plantilla');
+      }
     } finally {
       setLoading(false);
     }
-  }, [pdfUrl, previewOnCanvas, drawOverlay]);
+  }, [pdfUrl, previewOnCanvas, drawOverlay, zoom]);
 
   useEffect(() => {
     renderTemplate();
+    return () => {
+      // cancel any pending render on re-render/unmount
+      if (renderTaskRef.current && typeof renderTaskRef.current.cancel === 'function') {
+        try { renderTaskRef.current.cancel(); } catch (e) {}
+      }
+      renderTaskRef.current = null;
+    };
   }, [pdfUrl, renderTemplate]);
 
   // When markers or preview data change, redraw overlay if enabled
@@ -196,6 +232,18 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
     setMarkers((prev) => prev.map((m) => (m.key === dragging.key ? { ...m, x_pct: Math.max(0, Math.min(1, x_pct)), y_pct: Math.max(0, Math.min(1, y_pct)) } : m)));
   };
 
+  // Click on canvas to position active field (if selected)
+  const handleCanvasClick = (e: React.MouseEvent) => {
+    if (!activeField) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const localX = e.clientX - rect.left;
+    const localY = e.clientY - rect.top;
+    const { x_pct, y_pct } = toPct(localX, localY);
+    setMarkers((prev) => prev.map((m) => (m.key === activeField ? { ...m, x_pct: Math.max(0, Math.min(1, x_pct)), y_pct: Math.max(0, Math.min(1, y_pct)) } : m)));
+  };
+
   const handleMouseUp = () => setDragging(null);
 
   const addMarker = () => {
@@ -232,7 +280,7 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
       markers.forEach((m) => {
         schemaObj[m.key] = { page: m.page, x_pct: m.x_pct, y_pct: m.y_pct };
       });
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/templates/${templateId}/`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/templates/${templateId}/update/`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -265,6 +313,18 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
           <h2 className="text-lg font-bold">Editor visual de plantilla (PDF)</h2>
           <div className="flex gap-2">
             <button onClick={addMarker} className="px-3 py-1 bg-blue-600 text-white rounded">Añadir campo</button>
+            <div className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded">
+              <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))} className="px-2 py-1 bg-white border rounded">-</button>
+              <span className="text-sm">Zoom: {Math.round(zoom * 100)}%</span>
+              <button onClick={() => setZoom((z) => Math.min(3, z + 0.25))} className="px-2 py-1 bg-white border rounded">+</button>
+            </div>
+            <div className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded">
+              <label className="text-sm">Campo activo:</label>
+              <select value={activeField ?? ''} onChange={(e) => setActiveField(e.target.value || null)} className="px-2 py-1 border rounded bg-white text-sm">
+                <option value="">(ninguno)</option>
+                {markers.map((m) => (<option key={m.key} value={m.key}>{m.key}</option>))}
+              </select>
+            </div>
             <button onClick={saveSchema} className="px-3 py-1 bg-green-600 text-white rounded">Guardar posiciones</button>
             <button
               onClick={async () => {
@@ -289,7 +349,7 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
         {error && <div className="text-red-600">{error}</div>}
 
         <div className="flex gap-4">
-          <div ref={containerRef} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} className="relative border flex-1">
+          <div ref={containerRef} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} className="relative border flex-1" onClick={handleCanvasClick}>
             <canvas ref={canvasRef} style={{ display: pdfUrl ? 'block' : 'none', maxWidth: '100%', height: 'auto' }} />
 
             {/* Overlay markers */}
@@ -298,15 +358,15 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
               const previewText = previewEnabled ? (previewObj?.[m.key] ?? sampleData?.[m.key] ?? m.key) : m.key;
               return (
                 <div
-                  key={m.key}
-                  onMouseDown={(e) => handleMouseDown(e, m.key)}
-                  style={{ position: 'absolute', left: pos.x, top: pos.y, cursor: 'move' }}
-                  className="bg-yellow-300 border px-2 py-1 rounded max-w-xs"
-                >
-                  <div className="flex items-center gap-2">
-                    <strong className="text-xs">{previewText}</strong>
-                    <button onMouseDown={(e) => e.stopPropagation()} onClick={() => removeMarker(m.key)} className="text-xs text-red-600">x</button>
-                  </div>
+                    key={m.key}
+                    onMouseDown={(e) => handleMouseDown(e, m.key)}
+                    style={{ position: 'absolute', left: pos.x, top: pos.y, cursor: 'move' }}
+                    className="bg-indigo-600 border border-indigo-700 px-2 py-1 rounded max-w-xs shadow-md"
+                  >
+                      <div className="flex items-center gap-2">
+                        <strong className="text-xs text-white">{previewText}</strong>
+                        <button onMouseDown={(e) => e.stopPropagation()} onClick={() => removeMarker(m.key)} className="text-xs text-red-200 hover:text-red-100">x</button>
+                      </div>
                 </div>
               );
             })}
@@ -328,20 +388,38 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
             <div className="space-y-2">
               {markers.map((m) => (
                 <div key={m.key} className="p-2 border rounded bg-gray-50">
-                  <label className="text-xs text-gray-600">Clave</label>
+                  <label className="text-xs text-gray-600">Clave (nombre del campo)</label>
                   <input
                     value={m.key}
                     onChange={(e) => updateMarkerKey(m.key, e.target.value)}
                     className="w-full px-2 py-1 border rounded text-sm mb-1"
                   />
+
+                  <label className="text-xs text-gray-600">Mapear a dato de muestra</label>
+                  <select
+                    className="w-full px-2 py-1 border rounded text-sm mb-1"
+                    value={m.key}
+                    onChange={(e) => updateMarkerKey(m.key, e.target.value)}
+                  >
+                    <option value={m.key}>(usar clave actual)</option>
+                    {Object.keys(sampleData || {}).map((k) => (
+                      <option key={k} value={k}>{k}</option>
+                    ))}
+                  </select>
+
                   <label className="text-xs text-gray-600">Página</label>
                   <input
                     type="number"
                     min={1}
                     value={m.page}
                     onChange={(e) => updateMarkerPage(m.key, Number(e.target.value) || 1)}
-                    className="w-full px-2 py-1 border rounded text-sm"
+                    className="w-full px-2 py-1 border rounded text-sm mb-2"
                   />
+
+                  <div className="flex gap-2">
+                    <button onClick={() => setActiveField(m.key)} className="px-2 py-1 bg-blue-600 text-white text-xs rounded">Usar como activo</button>
+                    <button onClick={() => removeMarker(m.key)} className="px-2 py-1 bg-red-200 text-red-800 text-xs rounded">Eliminar</button>
+                  </div>
                 </div>
               ))}
             </div>

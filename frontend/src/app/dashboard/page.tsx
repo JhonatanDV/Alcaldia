@@ -99,7 +99,8 @@ export default function DashboardPage() {
           total_reports: statsResponse.data.overview.total_reports,
           total_incidents: statsResponse.data.overview.total_incidents,
         },
-        maintenances_by_type: statsResponse.data.maintenance_by_type,
+        // removed detailed breakdown by type/status — keep empty arrays for compatibility
+        maintenances_by_type: [],
         maintenances_by_month: chartsResponse.data.maintenances_per_month,
         maintenances_by_dependency: [], // Este dato no está en las vistas actuales
         maintenances_by_sede: [], // Este dato no está en las vistas actuales
@@ -151,23 +152,10 @@ export default function DashboardPage() {
 
   // Function to apply filters to dashboard stats
   const applyFilters = (stats: DashboardStats, filters: any) => {
+    // Currently only basic client-side filtering (search / sede / dependencia) is supported
     let filtered = { ...stats };
 
-    // Filter maintenances by type
-    if (filters.maintenance_type) {
-      filtered.maintenances_by_type = stats.maintenances_by_type.filter(
-        (item) => item.maintenance_type === filters.maintenance_type
-      );
-    }
-
-    // Filter by status (if we had status data)
-    // Note: Current backend doesn't provide status breakdown, but we can add it
-
-    // Filter by sede (if we had sede data)
-    // Note: Current backend doesn't provide sede breakdown, but we can add it
-
-    // Filter by dependencia (if we had dependencia data)
-    // Note: Current backend doesn't provide dependencia breakdown, but we can add it
+    // Future: additional filtering can be implemented here
 
     setFilteredStats(filtered);
   };
@@ -218,72 +206,22 @@ export default function DashboardPage() {
 
   return (
     <Layout userRole={userRole} onLogout={handleLogout}>
-      <div className="space-y-6">{/* Header con acciones rápidas */}
+      <div className="space-y-6">{/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                Dashboard de Mantenimientos
-              </h1>
-              <p className="text-sm text-gray-500 mt-1">
-                Vista general del sistema
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-              {userRole === 'admin' && (
-                <a
-                  href="/equipment/new"
-                  className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-                >
-                  <svg
-                    className="mr-2 h-4 w-4"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                  Nuevo Equipo
-                </a>
-              )}
-              <a
-                href="/maintenance/new"
-                className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
-              >
-                <svg
-                  className="mr-2 h-4 w-4"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                Nuevo Mantenimiento
-              </a>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard de Mantenimientos</h1>
+              <p className="text-sm text-gray-500 mt-1">Vista general del sistema</p>
             </div>
           </div>
         </div>
 
-        {/* Search Filters */}
+        {/* Search Filters (simplified) */}
         <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Filtros del Dashboard</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
-              <label htmlFor="dashboard-search" className="block text-sm font-medium text-gray-700">
-                Búsqueda General
-              </label>
+              <label htmlFor="dashboard-search" className="block text-sm font-medium text-gray-700">Búsqueda General</label>
               <input
                 type="text"
                 id="dashboard-search"
@@ -294,9 +232,7 @@ export default function DashboardPage() {
               />
             </div>
             <div>
-              <label htmlFor="dashboard-dependencia" className="block text-sm font-medium text-gray-700">
-                Dependencia
-              </label>
+              <label htmlFor="dashboard-dependencia" className="block text-sm font-medium text-gray-700">Dependencia</label>
               <input
                 type="text"
                 id="dashboard-dependencia"
@@ -307,9 +243,7 @@ export default function DashboardPage() {
               />
             </div>
             <div>
-              <label htmlFor="dashboard-sede" className="block text-sm font-medium text-gray-700">
-                Sede
-              </label>
+              <label htmlFor="dashboard-sede" className="block text-sm font-medium text-gray-700">Sede</label>
               <input
                 type="text"
                 id="dashboard-sede"
@@ -318,39 +252,6 @@ export default function DashboardPage() {
                 placeholder="Filtrar por sede"
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
               />
-            </div>
-            <div>
-              <label htmlFor="dashboard-status" className="block text-sm font-medium text-gray-700">
-                Estado
-              </label>
-              <select
-                id="dashboard-status"
-                value={searchFilters.status || ''}
-                onChange={(e) => setSearchFilters((prev: any) => ({ ...prev, status: e.target.value }))}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
-              >
-                <option value="">Todos los estados</option>
-                <option value="pending">Pendiente</option>
-                <option value="in_progress">En Progreso</option>
-                <option value="completed">Completado</option>
-                <option value="cancelled">Cancelado</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor="dashboard-type" className="block text-sm font-medium text-gray-700">
-                Tipo de Mantenimiento
-              </label>
-              <select
-                id="dashboard-type"
-                value={searchFilters.maintenance_type || ''}
-                onChange={(e) => setSearchFilters((prev: any) => ({ ...prev, maintenance_type: e.target.value }))}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
-              >
-                <option value="">Todos los tipos</option>
-                <option value="preventivo">Preventivo</option>
-                <option value="correctivo">Correctivo</option>
-                <option value="predictivo">Predictivo</option>
-              </select>
             </div>
             <div className="flex items-end">
               <button
@@ -416,36 +317,7 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Maintenances by Type */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
-              Mantenimientos por Tipo
-            </h2>
-            {filteredStats?.maintenances_by_type && filteredStats.maintenances_by_type.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={filteredStats?.maintenances_by_type || []}
-                    dataKey="count"
-                    nameKey="maintenance_type"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={100}
-                    label
-                  >
-                    {filteredStats?.maintenances_by_type.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-gray-500 text-center py-20">No hay datos disponibles</p>
-            )}
           </div>
-        </div>
 
         {/* Charts Row 2 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">

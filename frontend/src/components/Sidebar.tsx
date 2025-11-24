@@ -18,6 +18,8 @@ type MenuItem = {
 
 export default function Sidebar({ userRole: propUserRole, onLogout }: { userRole?: Role | null; onLogout?: () => void }) {
   const pathname = usePathname();
+  // Hide sidebar on the root/login page
+  if (pathname === '/' || pathname?.startsWith('/login')) return null;
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userRole, setUserRole] = useState<Role>('admin');
@@ -132,7 +134,7 @@ export default function Sidebar({ userRole: propUserRole, onLogout }: { userRole
           <div className="text-sm text-blue-200 mt-1">{username}</div>
         </div>
 
-        <nav className="p-3 space-y-1 overflow-y-auto h-[calc(100vh-64px)]">
+        <nav className="p-3 space-y-1 overflow-y-auto" style={{ height: 'calc(100vh - 140px)' }}>
           {filtered.map((item) => (
             <div key={item.name}>
               {item.submenu ? (
@@ -164,10 +166,10 @@ export default function Sidebar({ userRole: propUserRole, onLogout }: { userRole
           ))}
         </nav>
 
-        <div className="p-3 border-t border-blue-800">
-          <button onClick={handleLogout} className="w-full text-left px-3 py-2 rounded hover:bg-red-600 flex items-center">
-            <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 17l5-5-5-5M21 12H9"/></svg>
-            <span>Cerrar sesión</span>
+        <div className="absolute bottom-0 left-0 right-0 p-3 bg-blue-900 border-t border-blue-700">
+          <button onClick={handleLogout} className="w-full text-left px-3 py-2 rounded bg-red-600 hover:bg-red-700 flex items-center transition-colors">
+            <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeWidth="2" d="M16 17l5-5-5-5M21 12H9"/></svg>
+            <span className="font-medium">Cerrar sesión</span>
           </button>
         </div>
       </aside>

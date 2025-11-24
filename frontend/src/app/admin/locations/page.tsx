@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import Layout from '../../../components/Layout';
 
@@ -43,6 +44,14 @@ type TabType = 'sedes' | 'dependencias' | 'subdependencias';
 
 export default function LocationManagementPage() {
   const [activeTab, setActiveTab] = useState<TabType>('sedes');
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const tab = searchParams?.get?.('tab');
+    if (tab && ['sedes', 'dependencias', 'subdependencias'].includes(tab)) {
+      setActiveTab(tab as TabType);
+    }
+  }, [searchParams]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);

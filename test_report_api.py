@@ -4,7 +4,7 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
-from api.services import generate_equipment_report
+from api.services_main import generate_equipment_report
 from api.models import Equipment, Maintenance
 from django.contrib.auth.models import User
 

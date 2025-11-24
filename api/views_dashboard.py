@@ -36,15 +36,7 @@ class DashboardStatsView(APIView):
         total_reports = Maintenance.objects.filter(custom_reports__isnull=False).distinct().count()
         total_incidents = Incident.objects.count()
         
-        # Mantenimientos por estado
-        maintenances_by_status = Maintenance.objects.values('status').annotate(
-            count=Count('id')
-        ).order_by('-count')
-        
-        # Mantenimientos por tipo
-        maintenance_by_type = Maintenance.objects.values('maintenance_type').annotate(
-            count=Count('id')
-        ).order_by('-count')
+        # NOTE: breakdowns by status/type have been removed from the simplified dashboard API
         
         # Equipos más mantenidos
         equipment_most_maintenances = Equipment.objects.annotate(
@@ -67,8 +59,6 @@ class DashboardStatsView(APIView):
                 'total_reports': total_reports,
                 'total_incidents': total_incidents,
             },
-            'maintenances_by_status': list(maintenances_by_status),
-            'maintenance_by_type': list(maintenance_by_type),
             'equipment_most_maintenances': equipment_data,
             'average_rating': avg_rating
         })
@@ -111,15 +101,10 @@ class DashboardChartsView(APIView):
             'maintenance_count': eq.maintenance_count
         } for eq in equipment_most_maintenances]
         
-        # Mantenimientos por tipo
-        maintenance_by_type = Maintenance.objects.values('maintenance_type').annotate(
-            count=Count('id')
-        ).order_by('-count')
-        
+        # Note: we no longer return maintenance-by-type breakdown in the simplified charts API
         return Response({
             'maintenances_per_month': maintenances_per_month,
             'equipment_most_maintenances': equipment_data,
-            'maintenance_by_type': list(maintenance_by_type)
         })
 
 

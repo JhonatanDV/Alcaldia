@@ -12,7 +12,7 @@ from .serializers import EquipmentSerializer, MaintenanceSerializer, PhotoSerial
 from .permissions import IsAdmin, IsAdminOrTechnician, IsOwnerOrAdmin
 from .validators import validate_photo_limit
 from .filters import MaintenanceFilter
-from .services import generate_equipment_report
+from .services_main import generate_equipment_report
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
 import boto3

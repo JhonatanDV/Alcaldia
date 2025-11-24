@@ -21,10 +21,13 @@ from .views_template_manager import (
     generate_from_template,
     update_template,
     delete_template,
+    sample_template_data,
 )
 
+from .views_user_management import UserManagementViewSet
+
 router = DefaultRouter()
-router.register('users', UserViewSet)
+router.register('users', UserManagementViewSet, basename='users')
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -41,6 +44,7 @@ urlpatterns = [
     path('generate-pdf/', generate_pdf, name='generate-pdf'),
     path('templates/', list_templates, name='list_templates'),
     path('templates/upload/', upload_template, name='upload_template'),
+    path('templates/sample-data/', sample_template_data, name='sample_template_data'),
     path('templates/<int:template_id>/', get_template, name='get_template'),
     path('templates/<int:template_id>/generate/', generate_from_template, name='generate_from_template'),
     path('templates/<int:template_id>/update/', update_template, name='update_template'),

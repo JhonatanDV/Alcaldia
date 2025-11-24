@@ -4,7 +4,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.http import HttpResponse
 from .models import Template
-from .services.html_pdf_generator import HTMLPDFGenerator
+import json
+from datetime import datetime
+
+try:
+    from .services.html_pdf_generator import HTMLPDFGenerator
+except Exception:
+    HTMLPDFGenerator = None
+
 import json
 from datetime import datetime
 
@@ -17,7 +24,16 @@ def upload_template(request):
         name = request.data.get('name')
         template_type = request.data.get('type')
         html_content = request.data.get('html_content', '')
-        css_content = request.data.get('css_content', HTMLPDFGenerator.get_default_css())
+        html_content = request.data.get('html_content', '')
+        # Import HTMLPDFGenerator lazily because WeasyPrint (used by it)
+        # may not be installed in the environment (common on Windows).
+        try:
+            from .services.html_pdf_generator import HTMLPDFGenerator
+            default_css = HTMLPDFGenerator.get_default_css()
+        except Exception:
+            default_css = ''
+
+        css_content = request.data.get('css_content', default_css)
         fields_schema = json.loads(request.data.get('fields_schema', '{}')) if request.data.get('fields_schema') else {}
         template_file = request.FILES.get('template_file')
 
@@ -80,7 +96,10 @@ def generate_from_template(request, template_id):
         data = request.data.get('data', {})
 
         if template.type == 'pdf':
-            pdf_file = HTMLPDFGenerator.render_template(template.html_content, template.css_content, data)
+            if HTMLPDFGenerator:
+                pdf_file = HTMLPDFGenerator.render_template(template.html_content, template.css_content, data)
+            else:
+                return Response({'error': 'Generación de PDF no disponible en este entorno.'}, status=501)
             response = HttpResponse(pdf_file.read(), content_type='application/pdf')
             response['Content-Disposition'] = f'attachment; filename="{template.name}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
             return response
@@ -93,6 +112,39 @@ def generate_from_template(request, template_id):
         return Response({'error': 'Plantilla no encontrada'}, status=404)
     except Exception as e:
         return Response({'error': str(e)}, status=400)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def sample_template_data(request):
+    """Devuelve datos de ejemplo serializados para un mantenimiento dado.
+
+    Query params:
+      - maintenance_id: int (opcional). Si no se provee, se devuelve el último mantenimiento del usuario.
+    """
+    maintenance_id = request.query_params.get('maintenance_id')
+    try:
+        from .services.maintenance_serializer import serialize_maintenance
+    except Exception:
+        return Response({'error': 'Serializer de mantenimiento no disponible'}, status=500)
+
+    if maintenance_id:
+        try:
+            data = serialize_maintenance(int(maintenance_id))
+            return Response(data)
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)
+
+    # If no maintenance_id provided, attempt to return most recent maintenance
+    try:
+        from .models import Maintenance
+        m = Maintenance.objects.order_by('-created_at').first()
+        if not m:
+            return Response({'error': 'No hay mantenimientos disponibles para generar datos de ejemplo'}, status=404)
+        data = serialize_maintenance(m.id)
+        return Response(data)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
 
 
 @api_view(['PUT'])

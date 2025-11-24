@@ -59,6 +59,8 @@ urlpatterns = [
     path('api/reports/', ReportListView.as_view(), name='reports'),
     path('api/reports/generate/', ReportGenerateView.as_view(), name='reports-generate'),
     path('api/', include(router.urls)),
+    # Include main API url mappings (templates, template manager, etc.)
+    path('api/', include('api.urls')),
     path('api/dashboard/', include('api.urls_dashboard')),
     path('api/admin/', include('api.urls_user_management')),
     # Alias path for legacy frontend routes expecting /api/user-management/
