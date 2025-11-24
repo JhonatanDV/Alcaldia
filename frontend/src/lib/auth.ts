@@ -22,7 +22,6 @@ export function initAuth(onLogout?: () => void, onWarn?: (show: boolean, remaini
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('user_role');
       localStorage.removeItem('username');
-      localStorage.removeItem('role');
       window.location.href = '/';
     }
   };

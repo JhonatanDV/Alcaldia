@@ -63,20 +63,17 @@ export default function DashboardPage() {
   const [filteredStats, setFilteredStats] = useState<DashboardStats | null>(null);
   const [dependenciasOptions, setDependenciasOptions] = useState<string[]>([]);
   const [sedesOptions, setSedesOptions] = useState<string[]>([]);
+  const [subdependenciasOptions, setSubdependenciasOptions] = useState<string[]>([]);
+  const [equiposOptions, setEquiposOptions] = useState<string[]>([]);
 
-  const fetchDashboardData = async () => {
-    const token = localStorage.getItem('access_token');
-    const role = localStorage.getItem('user_role') as 'admin' | 'technician' | null;
-    
-    // Debug: Log token information
-    console.log('=== DASHBOARD TOKEN DEBUG ===');
-    console.log('Token exists:', !!token);
-    console.log('Token length:', token?.length);
-    console.log('Token preview:', token?.substring(0, 20) + '...');
-    console.log('User role:', role);
+  const fetchDashboardData = async (filters: any = {}) => {
+  const token = localStorage.getItem('access_token');
+  // Normalize stored role in case backend returned spanish/variant values
+  const { normalizeRole } = await import('@/lib/role');
+  const rawRole = localStorage.getItem('user_role');
+  const role = normalizeRole(rawRole) as 'admin' | 'technician' | null;
     
     if (!token) {
-      console.log('No token found, redirecting to login...');
       setIsAuthenticated(false);
       window.location.href = '/';
       return;
@@ -89,67 +86,67 @@ export default function DashboardPage() {
       const headers = {
         Authorization: `Bearer ${token}`,
       };
-      
-      console.log('Request headers:', headers);
-      console.log('Making requests to:', API_URL);
-
-      // Cambiar las URLs para que coincidan con las rutas del backend
-      const [statsResponse, chartsResponse, recentActivityResponse] = await Promise.all([
-        axios.get(`${API_URL}/api/dashboard/stats/`, { headers }),
-        axios.get(`${API_URL}/api/dashboard/charts/`, { headers }),
-        axios.get(`${API_URL}/api/dashboard/recent-activity/`, { headers }),
+      // Request headers prepared; executing API calls. Pass client filters to endpoints that accept them.
+      const [statsResponse, chartsResponse, recentActivityResponse, filterOptionsResponse, equipmentListResponse, subdependenciasResponse] = await Promise.all([
+        axios.get(`${API_URL}/api/dashboard/stats/`, { headers, params: filters }),
+        axios.get(`${API_URL}/api/dashboard/charts/`, { headers, params: filters }),
+        axios.get(`${API_URL}/api/dashboard/recent-activity/`, { headers, params: filters }),
+        axios.get(`${API_URL}/api/dashboard/filter-options/`, { headers }),
+        axios.get(`${API_URL}/api/dashboard/equipment/`, { headers, params: filters }),
+        axios.get(`${API_URL}/api/config/subdependencias/`, { headers }),
       ]);
 
-      // Combinar los datos de las diferentes respuestas
+      const overview = statsResponse.data.overview || {};
+      // Combinar los datos de las diferentes respuestas (usar overview devuelto por el servidor)
       const combinedStats = {
         summary: {
-          total_maintenances: statsResponse.data.overview.total_maintenances,
-          total_equipments: statsResponse.data.overview.total_equipment,
-          total_reports: statsResponse.data.overview.total_reports,
-          total_incidents: statsResponse.data.overview.total_incidents,
+          total_maintenances: overview.total_maintenances || 0,
+          total_equipments: overview.total_equipment || 0,
+          total_reports: overview.total_reports || 0,
+          total_incidents: overview.total_incidents || 0,
         },
         // removed detailed breakdown by type/status — keep empty arrays for compatibility
         maintenances_by_type: [],
         maintenances_by_month: chartsResponse.data.maintenances_per_month,
-        maintenances_by_dependency: [], // Este dato no está en las vistas actuales
-        maintenances_by_sede: [], // Este dato no está en las vistas actuales
-        recent_maintenances: recentActivityResponse.data.recent_maintenances,
+        maintenances_by_dependency: [],
+        maintenances_by_sede: [],
+        recent_maintenances: statsResponse.data.recent_maintenances || recentActivityResponse.data.recent_maintenances,
         top_equipment: chartsResponse.data.equipment_most_maintenances,
         ratings_distribution: [],
       };
 
       const combinedEquipmentStats = {
-        equipment_with_last_maintenance: recentActivityResponse.data.recent_maintenances.map((m: any) => ({
-          id: m.id,
-          placa: m.equipment__code,
+        equipment_with_last_maintenance: (combinedStats.recent_maintenances || []).map((m: any, idx: number) => ({
+          id: m.id || idx,
+          placa: m.equipment_serial || m.equipment_name || (`EQ-${idx}`),
           equipment_type: m.maintenance_type,
-          last_maintenance_date: m.maintenance_date,
+          last_maintenance_date: m.scheduled_date || m.completion_date,
           days_since_maintenance: 0,
         })),
-        equipment_without_maintenance: recentActivityResponse.data.equipment_needing_maintenance.map((e: any) => ({
+        equipment_without_maintenance: (recentActivityResponse.data.equipment_needing_maintenance || []).map((e: any) => ({
           id: e.id,
-          placa: e.code,
+          placa: e.serial || e.name || String(e.id),
           equipment_type: 'N/A',
         })),
       };
 
       setStats(combinedStats);
-      setFilteredStats(combinedStats); // Initialize filtered stats
+      setFilteredStats(combinedStats); // Initialize filtered stats (server already applied filters)
       setEquipmentStats(combinedEquipmentStats);
 
-      // populate filter dropdown options from returned data
-      const deps = new Set<string>();
-      const sds = new Set<string>();
-      (recentActivityResponse.data.recent_maintenances || []).forEach((m: any) => {
-        // Extract dependencia from various possible field names
-        const dep = m.dependencia_name || m.equipment__dependencia__name || m.equipment_dependencia || m.dependencia;
-        if (dep) deps.add(dep);
-        // Extract sede from various possible field names
-        const sede = m.sede_name || m.equipment__sede__name || m.equipment_sede || m.sede;
-        if (sede) sds.add(sede);
-      });
-      setDependenciasOptions(Array.from(deps).sort());
-      setSedesOptions(Array.from(sds).sort());
+      // populate filter dropdown options from filter-options endpoint and equipment/subdependencias endpoints
+      const filtersResp = filterOptionsResponse.data || {};
+      setSedesOptions((filtersResp.sedes || []).slice().sort());
+      setDependenciasOptions((filtersResp.dependencias || []).slice().sort());
+
+      // equipos list from /api/dashboard/equipment/
+      const equipmentList = equipmentListResponse.data || [];
+      const eqSet = new Set<string>(equipmentList.map((e: any) => e.serial || e.equipment_serial || e.name || String(e.id)));
+      setEquiposOptions(Array.from(eqSet).sort());
+
+      // subdependencias from config endpoint
+      const subsList = subdependenciasResponse.data || [];
+      setSubdependenciasOptions(subsList.map((s: any) => s.nombre).sort());
       setLoading(false);
     } catch (err: any) {
       console.error('Error fetching dashboard:', err);
@@ -173,22 +170,7 @@ export default function DashboardPage() {
     return () => clearInterval(refreshInterval);
   }, []);
 
-  // Function to apply filters to dashboard stats
-  const applyFilters = (stats: DashboardStats, filters: any) => {
-    // Currently only basic client-side filtering (search / sede / dependencia) is supported
-    let filtered = { ...stats };
-
-    // Future: additional filtering can be implemented here
-
-    setFilteredStats(filtered);
-  };
-
-  // Apply filters when searchFilters change
-  useEffect(() => {
-    if (stats) {
-      applyFilters(stats, searchFilters);
-    }
-  }, [searchFilters, stats]);
+  // Filters are applied server-side: when `searchFilters` changes we re-fetch stats (see useEffect above)
 
   // No renderizar nada si no está autenticado
   if (!isAuthenticated) {
@@ -242,7 +224,7 @@ export default function DashboardPage() {
         {/* Search Filters (simplified) */}
         <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
           <h3 className="text-lg font-medium text-black mb-4">Filtros del Dashboard</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label htmlFor="dashboard-search" className="block text-sm font-medium text-black">Búsqueda General</label>
               <input
@@ -276,6 +258,30 @@ export default function DashboardPage() {
               >
                 <option value="">(Todas)</option>
                 {sedesOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="dashboard-subdependencia" className="block text-sm font-medium text-black">Subdependencia</label>
+              <select
+                id="dashboard-subdependencia"
+                value={searchFilters.subdependencia || ''}
+                onChange={(e) => setSearchFilters((prev: any) => ({ ...prev, subdependencia: e.target.value }))}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black bg-white"
+              >
+                <option value="">(Todas)</option>
+                {subdependenciasOptions.map((sd) => <option key={sd} value={sd}>{sd}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="dashboard-equipo" className="block text-sm font-medium text-black">Equipo (Placa)</label>
+              <select
+                id="dashboard-equipo"
+                value={searchFilters.equipment_placa || ''}
+                onChange={(e) => setSearchFilters((prev: any) => ({ ...prev, equipment_placa: e.target.value }))}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black bg-white"
+              >
+                <option value="">(Todas)</option>
+                {equiposOptions.map((eq) => <option key={eq} value={eq}>{eq}</option>)}
               </select>
             </div>
             <div className="flex items-end">

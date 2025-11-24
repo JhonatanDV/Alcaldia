@@ -13,6 +13,14 @@ try:
 except Exception:
     HTMLPDFGenerator = None
 
+# Fallback simple generator using ReportLab (pure Python). This avoids
+# native deps on environments like Windows. reportlab must be installed
+# in the virtualenv for this to work.
+try:
+    from .services.reportlab_pdf_generator import ReportLabPDFGenerator
+except Exception:
+    ReportLabPDFGenerator = None
+
 import json
 from datetime import datetime
 
@@ -122,8 +130,48 @@ def generate_from_template(request, template_key):
         data = request.data.get('data', {})
 
         if template.type == 'pdf':
+            # Prefer WeasyPrint-based generator (HTMLPDFGenerator). If no
+            # WeasyPrint available, try ReportLab fallback which produces a
+            # basic PDF rendering of the template content. If the template
+            # has an uploaded `template_file` (image) and the client sends
+            # overlay specs, the ReportLab fallback will compose text over
+            # the image using percentage coordinates.
+            # Extract overlays from request data if present. Expect a list of
+            # objects: { text, x_pct, y_pct, font_size }
+            overlays = None
+            try:
+                # overlays may be sent as JSON string or as a JSON body field
+                overlays_field = request.data.get('_overlays') or request.data.get('overlays')
+                if overlays_field:
+                    if isinstance(overlays_field, str):
+                        import json as _json
+                        overlays = _json.loads(overlays_field)
+                    else:
+                        overlays = overlays_field
+            except Exception:
+                overlays = None
+
+            background_bytes = None
+            try:
+                if template.template_file:
+                    # Read the file content (works for local storage or FileStorage)
+                    template.template_file.open('rb')
+                    background_bytes = template.template_file.read()
+                    template.template_file.close()
+            except Exception:
+                background_bytes = None
+
             if HTMLPDFGenerator:
+                # HTML generator does not support image-overlay in this simple path
                 pdf_file = HTMLPDFGenerator.render_template(template.html_content, template.css_content, data)
+            elif ReportLabPDFGenerator:
+                pdf_file = ReportLabPDFGenerator.render_template(
+                    template.html_content,
+                    template.css_content,
+                    data,
+                    background_bytes=background_bytes,
+                    overlays=overlays
+                )
             else:
                 return Response({'error': 'Generación de PDF no disponible en este entorno.'}, status=501)
             response = HttpResponse(pdf_file.read(), content_type='application/pdf')

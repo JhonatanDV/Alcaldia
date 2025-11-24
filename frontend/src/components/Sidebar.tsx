@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { normalizeRole, getStoredUserRole } from '@/lib/role';
 
-type Role = 'admin' | 'technician' | 'guest';
+type Role = 'admin' | 'technician';
 
 type SubItem = { name: string; href: string; roles?: Role[] };
 
@@ -18,21 +19,34 @@ type MenuItem = {
 
 export default function Sidebar({ userRole: propUserRole, onLogout }: { userRole?: Role | null; onLogout?: () => void }) {
   const pathname = usePathname();
-  // Hide sidebar on the root/login page
-  if (pathname === '/' || pathname?.startsWith('/login')) return null;
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userRole, setUserRole] = useState<Role>('admin');
   const [username, setUsername] = useState('Usuario');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Check authentication on mount and pathname changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('access_token');
+      setIsAuthenticated(!!token);
+    }
+  }, [pathname]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const roleFromStorage = (localStorage.getItem('role') as Role) || null;
+      // Read stored role and normalize to canonical values
+      const roleFromStorage = getStoredUserRole();
       const initialRole = propUserRole || roleFromStorage || 'admin';
       setUserRole(initialRole as Role);
       setUsername(localStorage.getItem('username') || 'Usuario');
     }
   }, [propUserRole]);
+
+  // Hide sidebar on the root/login page if not authenticated
+  if ((pathname === '/' || pathname?.startsWith('/login')) && !isAuthenticated) {
+    return null;
+  }
 
   // Listen for a global custom event to toggle the sidebar (useful when
   // the layout wants to expose a toggle button outside the component)
@@ -88,7 +102,6 @@ export default function Sidebar({ userRole: propUserRole, onLogout }: { userRole
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user_role');
     localStorage.removeItem('username');
-    localStorage.removeItem('role');
     window.location.href = '/';
   };
 
@@ -112,9 +125,13 @@ export default function Sidebar({ userRole: propUserRole, onLogout }: { userRole
       <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3h18v18H3V3zM7 7h10M7 11h10M7 15h6"/></svg>
     ), submenu: [
       { name: 'Crear Reporte', href: '/reports/create', roles: ['admin', 'technician'] },
-      { name: 'Plantillas', href: '/reports/templates', roles: ['admin', 'technician'] },
+  { name: 'Plantillas', href: '/reports/templates', roles: ['admin', 'technician'] },
       { name: 'Generados', href: '/reports/list', roles: ['admin', 'technician'] },
     ] },
+    // Plantillas como item principal para acceso directo
+  { name: 'Plantillas', href: '/reports/templates', roles: ['admin', 'technician'], icon: (
+      <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7h18v14H3zM3 3h18v2H3z"/></svg>
+    ) },
     { name: 'Ubicaciones', href: '/admin/locations', roles: ['admin'], icon: (
       <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z"/></svg>
     ), submenu: [
@@ -129,7 +146,7 @@ export default function Sidebar({ userRole: propUserRole, onLogout }: { userRole
       <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06A2 2 0 012.28 18l.06-.06A1.65 1.65 0 012.67 16.2 1.65 1.65 0 013 14.4V12a2 2 0 110-4v-.09c0-.6.24-1.17.67-1.59l.06-.06A2 2 0 115.57 4.4l-.06.06A1.65 1.65 0 017.4 3.67 1.65 1.65 0 009.2 3h.09A2 2 0 0112 2h0a2 2 0 011.71 1.09c.2.36.57.61 1 .65h.09a1.65 1.65 0 011.58 1.45c.05.36.28.68.62.88z"/></svg>
     ), submenu: [
       { name: 'Ajustes', href: '/admin/settings', roles: ['admin'] },
-      { name: 'Permisos', href: '/admin/permissions', roles: ['admin'] },
+  { name: 'Gestión de permisos por rol', href: '/admin/permissions', roles: ['admin'] },
       { name: 'Backup', href: '/admin/backup', roles: ['admin'] },
     ] },
   ];
@@ -146,13 +163,13 @@ export default function Sidebar({ userRole: propUserRole, onLogout }: { userRole
         />
       )}
 
-      <aside className={`fixed top-0 left-0 z-40 h-screen w-64 bg-gradient-to-b from-blue-900 to-blue-800 text-white shadow-lg transform ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out`}>
+      <aside className={`fixed top-0 left-0 z-40 h-screen w-64 bg-gradient-to-b from-blue-900 to-blue-800 text-white shadow-lg transform ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-transform duration-300 ease-in-out`}>
         <div className="p-4 border-b border-blue-800">
           <h1 className="text-lg font-bold">Sistema</h1>
           <div className="text-sm text-blue-200 mt-1">{username}</div>
         </div>
 
-        <nav className="p-3 space-y-1 overflow-y-auto" style={{ height: 'calc(100vh - 140px)' }}>
+        <nav className="p-3 space-y-1 overflow-y-auto h-[calc(100vh-140px)]">
           {filtered.map((item) => (
             <div key={item.name}>
               {item.submenu ? (

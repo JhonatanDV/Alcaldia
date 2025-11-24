@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import axios from "axios";
 import SignaturePad from "react-signature-canvas";
+import CascadingLocationSelect from './CascadingLocationSelect';
 
 interface MaintenanceFormProps {
   token: string;
@@ -26,9 +27,14 @@ export default function MaintenanceForm({
     description: "",
     scheduled_date: "",
     performed_by: "",
-    sede: equipmentLocation || "",
-    dependencia: "",
-    oficina: "",
+  // relational ids (preferred)
+  sede_rel: null as number | null,
+  dependencia_rel: null as number | null,
+  subdependencia: null as number | null,
+  // legacy string fields (kept for compatibility)
+  sede: equipmentLocation || "",
+  dependencia: "",
+  oficina: "",
     placa: equipmentCode || "",
     hora_inicio: "",
     hora_final: "",
@@ -54,6 +60,18 @@ export default function MaintenanceForm({
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSedeChange = (sedeId: number | null) => {
+    setFormData((prev) => ({ ...prev, sede_rel: sedeId, dependencia_rel: null, subdependencia: null }));
+  };
+
+  const handleDependenciaChange = (dependenciaId: number | null) => {
+    setFormData((prev) => ({ ...prev, dependencia_rel: dependenciaId, subdependencia: null }));
+  };
+
+  const handleSubdependenciaChange = (subId: number | null) => {
+    setFormData((prev) => ({ ...prev, subdependencia: subId }));
   };
 
   const handleActivityChange = (activity: string, value: boolean | null) => {
@@ -120,9 +138,26 @@ export default function MaintenanceForm({
       formDataToSend.append("description", formData.description);
       formDataToSend.append("scheduled_date", formData.scheduled_date);
       formDataToSend.append("performed_by", formData.performed_by);
-      formDataToSend.append("sede", formData.sede);
-      formDataToSend.append("dependencia", formData.dependencia);
-      formDataToSend.append("oficina", formData.oficina);
+      // Prefer relational IDs if set, otherwise fallback to legacy string fields
+      if (formData.sede_rel) {
+        formDataToSend.append("sede_rel", String(formData.sede_rel));
+      } else {
+        formDataToSend.append("sede", formData.sede);
+      }
+
+      if (formData.dependencia_rel) {
+        formDataToSend.append("dependencia_rel", String(formData.dependencia_rel));
+      } else {
+        formDataToSend.append("dependencia", formData.dependencia);
+      }
+
+      if (formData.subdependencia) {
+        formDataToSend.append("subdependencia", String(formData.subdependencia));
+        // also keep legacy oficina text if present
+        if (formData.oficina) formDataToSend.append("oficina", formData.oficina);
+      } else {
+        formDataToSend.append("oficina", formData.oficina);
+      }
       formDataToSend.append("placa", formData.placa);
       formDataToSend.append("hora_inicio", formData.hora_inicio);
       formDataToSend.append("hora_final", formData.hora_final);
@@ -167,6 +202,9 @@ export default function MaintenanceForm({
         description: "",
         scheduled_date: "",
         performed_by: "",
+        sede_rel: null,
+        dependencia_rel: null,
+        subdependencia: null,
         sede: equipmentLocation || "",
         dependencia: "",
         oficina: "",
@@ -385,57 +423,18 @@ export default function MaintenanceForm({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label
-              htmlFor="sede"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Sede
-            </label>
-            <input
-              type="text"
-              id="sede"
-              name="sede"
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Ubicación</label>
+            <CascadingLocationSelect
+              sedeId={formData.sede_rel}
+              dependenciaId={formData.dependencia_rel}
+              subdependenciaId={formData.subdependencia}
+              onSedeChange={handleSedeChange}
+              onDependenciaChange={handleDependenciaChange}
+              onSubdependenciaChange={handleSubdependenciaChange}
               required={!formData.is_incident}
-              className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
-              value={formData.sede}
-              onChange={handleInputChange}
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="dependencia"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Dependencia
-            </label>
-            <input
-              type="text"
-              id="dependencia"
-              name="dependencia"
-              required={!formData.is_incident}
-              className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
-              value={formData.dependencia}
-              onChange={handleInputChange}
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="oficina"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Oficina
-            </label>
-            <input
-              type="text"
-              id="oficina"
-              name="oficina"
-              required={!formData.is_incident}
-              className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
-              value={formData.oficina}
-              onChange={handleInputChange}
+              disabled={false}
+              showSubdependencia={true}
             />
           </div>
 
@@ -746,14 +745,16 @@ export default function MaintenanceForm({
 
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">
+          <label htmlFor="photo-upload" className="block text-sm font-medium text-gray-700">
             Fotos (máximo 5, 5MB cada una)
           </label>
           <input
+            id="photo-upload"
             type="file"
             multiple
             accept="image/*"
             onChange={handlePhotoChange}
+            aria-label="Subir fotos del mantenimiento"
             className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
           />
           {photos.length > 0 && (

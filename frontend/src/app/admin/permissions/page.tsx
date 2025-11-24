@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import Layout from '../../../components/Layout';
+import { getStoredUserRole } from '@/lib/role';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -41,7 +42,7 @@ export default function PermissionsPage() {
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
-    const role = localStorage.getItem('user_role') as 'admin' | 'technician' | null;
+    const role = getStoredUserRole();
 
     if (!token || role !== 'admin') {
       window.location.href = '/';

@@ -23,7 +23,6 @@ export default function Home() {
       }} 
       onRoleSet={(role) => {
         localStorage.setItem('user_role', role || '');
-        localStorage.setItem('role', role || '');
       }} 
     />
   );

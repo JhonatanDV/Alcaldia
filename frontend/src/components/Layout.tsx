@@ -25,16 +25,31 @@ export default function Layout({ children, userRole, onLogout }: LayoutProps) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    setIsAuthenticated(!!token);
+    // Check token immediately
+    const checkAuth = () => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      setIsAuthenticated(!!token);
+    };
+    
+    checkAuth();
 
+    // Listen for storage events from other tabs/windows
     const onStorage = (e: StorageEvent) => {
       if (e.key === 'access_token') {
         setIsAuthenticated(!!e.newValue);
       }
     };
+
+    // Listen for custom auth events (for same-tab updates)
+    const onAuthChange = () => checkAuth();
+    
     window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    window.addEventListener('auth-changed', onAuthChange);
+    
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('auth-changed', onAuthChange);
+    };
   }, []);
 
   useEffect(() => {

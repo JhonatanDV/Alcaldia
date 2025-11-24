@@ -1,6 +1,6 @@
-'use client';
+ 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import Layout from '../../../components/Layout';
@@ -20,6 +20,7 @@ interface Dependencia {
   sede: number;
   sede_nombre: string;
   nombre: string;
+  codigo?: string;
   subdependencias_count?: number;
   activo: boolean;
 }
@@ -52,6 +53,7 @@ export default function LocationManagementPage() {
 
   // Estados para Sedes
   const [sedes, setSedes] = useState<Sede[]>([]);
+  const [sedeDependenciasMap, setSedeDependenciasMap] = useState<Record<number, Dependencia[]>>({});
   const [showSedeModal, setShowSedeModal] = useState(false);
   const [editingSede, setEditingSede] = useState<Sede | null>(null);
   const [sedeForm, setSedeForm] = useState({
@@ -62,6 +64,7 @@ export default function LocationManagementPage() {
 
   // Estados para Dependencias
   const [dependencias, setDependencias] = useState<Dependencia[]>([]);
+  const [dependenciaSubMap, setDependenciaSubMap] = useState<Record<number, Subdependencia[]>>({});
   const [showDependenciaModal, setShowDependenciaModal] = useState(false);
   const [editingDependencia, setEditingDependencia] = useState<Dependencia | null>(null);
   const [dependenciaForm, setDependenciaForm] = useState({
@@ -72,6 +75,8 @@ export default function LocationManagementPage() {
 
   // Estados para Subdependencias
   const [subdependencias, setSubdependencias] = useState<Subdependencia[]>([]);
+  const [expandedSedes, setExpandedSedes] = useState<number[]>([]);
+  const [expandedDependencias, setExpandedDependencias] = useState<number[]>([]);
   const [showSubdependenciaModal, setShowSubdependenciaModal] = useState(false);
   const [editingSubdependencia, setEditingSubdependencia] = useState<Subdependencia | null>(null);
   const [subdependenciaForm, setSubdependenciaForm] = useState({
@@ -129,6 +134,30 @@ export default function LocationManagementPage() {
       setError('Error al cargar los datos');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDependenciasForSede = async (sedeId: number) => {
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const resp = await axios.get(`${API_URL}/api/config/sedes/${sedeId}/dependencias/`, { headers });
+      setSedeDependenciasMap((m) => ({ ...m, [sedeId]: resp.data }));
+    } catch (err) {
+      console.error('Error fetching dependencias for sede', err);
+    }
+  };
+
+  const fetchSubdependenciasForDependencia = async (dependenciaId: number) => {
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const resp = await axios.get(`${API_URL}/api/config/dependencias/${dependenciaId}/subdependencias/`, { headers });
+      setDependenciaSubMap((m) => ({ ...m, [dependenciaId]: resp.data }));
+    } catch (err) {
+      console.error('Error fetching subdependencias for dependencia', err);
     }
   };
 
@@ -462,38 +491,69 @@ export default function LocationManagementPage() {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {sedes.map((sede) => (
-                        <tr key={sede.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-black">{sede.nombre}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{sede.direccion || '-'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {sede.activo ? (
-                              <span className="px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">Activo</span>
-                            ) : (
-                              <span className="px-2 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full">Inactivo</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{sede.dependencias_count || 0}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <button
-                              onClick={() => openSedeModal(sede)}
-                              className="text-blue-600 hover:text-blue-900 mr-3"
-                              title="Editar"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => handleDeleteSede(sede.id)}
-                              className="text-red-600 hover:text-red-900"
-                              title="Eliminar"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                              </svg>
-                            </button>
-                          </td>
-                        </tr>
+                        <React.Fragment key={sede.id}>
+                          <tr>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-black">{sede.nombre}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{sede.direccion || '-'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {sede.activo ? (
+                                <span className="px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">Activo</span>
+                              ) : (
+                                <span className="px-2 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full">Inactivo</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{sede.dependencias_count || 0}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <button
+                                  onClick={() => openSedeModal(sede)}
+                                className="text-blue-600 hover:text-blue-900 mr-3"
+                                title="Editar"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSede(sede.id)}
+                                className="text-red-600 hover:text-red-900"
+                                title="Eliminar"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  // toggle expand
+                                  if (expandedSedes.includes(sede.id)) {
+                                    setExpandedSedes((arr) => arr.filter((x) => x !== sede.id));
+                                  } else {
+                                    await fetchDependenciasForSede(sede.id);
+                                    setExpandedSedes((arr) => [...arr, sede.id]);
+                                  }
+                                }}
+                                className="ml-3 text-gray-600 hover:text-gray-900"
+                                title="Ver dependencias"
+                              >
+                                Ver dependencias
+                              </button>
+                            </td>
+                          </tr>
+                          {expandedSedes.includes(sede.id) && (
+                            <tr>
+                              <td colSpan={5} className="bg-gray-50 px-6 py-4">
+                                <div className="text-sm text-black">
+                                  <strong>Dependencias de {sede.nombre}:</strong>
+                                  <ul className="mt-2 list-disc list-inside">
+                                    {(sedeDependenciasMap[sede.id] || []).map((d) => (
+                                      <li key={d.id}>{d.nombre} {d.codigo ? `(${d.codigo})` : ''}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       ))}
                     </tbody>
                   </table>
@@ -526,31 +586,61 @@ export default function LocationManagementPage() {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {dependencias.map((dep) => (
-                        <tr key={dep.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{dep.sede_nombre}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-black">{dep.nombre}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{dep.subdependencias_count || 0}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <button
-                              onClick={() => openDependenciaModal(dep)}
-                              className="text-blue-600 hover:text-blue-900 mr-3"
-                              title="Editar"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => handleDeleteDependencia(dep.id)}
-                              className="text-red-600 hover:text-red-900"
-                              title="Eliminar"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                              </svg>
-                            </button>
-                          </td>
-                        </tr>
+                        <React.Fragment key={dep.id}>
+                          <tr>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{dep.sede_nombre}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-black">{dep.nombre}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{dep.subdependencias_count || 0}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <button
+                                onClick={() => openDependenciaModal(dep)}
+                                className="text-blue-600 hover:text-blue-900 mr-3"
+                                title="Editar"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteDependencia(dep.id)}
+                                className="text-red-600 hover:text-red-900"
+                                title="Eliminar"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (expandedDependencias.includes(dep.id)) {
+                                    setExpandedDependencias((arr) => arr.filter((x) => x !== dep.id));
+                                  } else {
+                                    await fetchSubdependenciasForDependencia(dep.id);
+                                    setExpandedDependencias((arr) => [...arr, dep.id]);
+                                  }
+                                }}
+                                className="ml-3 text-gray-600 hover:text-gray-900"
+                                title="Ver subdependencias"
+                              >
+                                Ver subdependencias
+                              </button>
+                            </td>
+                          </tr>
+                          {expandedDependencias.includes(dep.id) && (
+                            <tr>
+                              <td colSpan={4} className="bg-gray-50 px-6 py-4">
+                                <div className="text-sm text-black">
+                                  <strong>Subdependencias de {dep.nombre}:</strong>
+                                  <ul className="mt-2 list-disc list-inside">
+                                    {(dependenciaSubMap[dep.id] || []).map((s) => (
+                                      <li key={s.id}>{s.nombre}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       ))}
                     </tbody>
                   </table>

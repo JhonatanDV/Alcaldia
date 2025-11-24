@@ -8,6 +8,7 @@ type Marker = {
   x_pct: number;
   y_pct: number;
   page: number;
+  map_to?: string;
 };
 
 export default function TemplateDesigner({ templateId, onClose, sampleData }: { templateId: string | number; onClose: () => void; sampleData?: any }) {
@@ -22,6 +23,8 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState<{ key: string; offsetX: number; offsetY: number } | null>(null);
+  const draggingRef = useRef<{ key: string; offsetX: number; offsetY: number } | null>(null);
+  const ghostRef = useRef<HTMLDivElement | null>(null);
   const renderTaskRef = useRef<any>(null);
   const [zoom, setZoom] = useState<number>(1.5);
   const [activeField, setActiveField] = useState<string | null>(null);
@@ -70,7 +73,8 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
     ctx.textBaseline = 'top';
 
     markers.forEach((m) => {
-      const text = previewEnabled ? (previewObj?.[m.key] ?? sampleData?.[m.key] ?? m.key) : m.key;
+      const mappedKey = localKeys[m.key] ?? m.key;
+      const text = previewEnabled ? (previewObj?.[mappedKey] ?? sampleData?.[mappedKey] ?? m.key) : m.key;
       const x = m.x_pct * canvas.width;
       const y = m.y_pct * canvas.height;
       const padding = 6;
@@ -89,7 +93,7 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
     });
 
     ctx.restore();
-  }, [markers, previewEnabled, previewObj, sampleData]);
+  }, [markers, previewEnabled, previewObj, sampleData, localKeys]);
 
   // Render base template (PDF or image) into canvas
   const renderTemplate = useCallback(async () => {
@@ -196,9 +200,32 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
   // Keep a local editable copy of marker keys to avoid committing changes on every keystroke
   useEffect(() => {
     const map: Record<string, string> = {};
-    markers.forEach((m) => { map[m.key] = m.key; });
+    markers.forEach((m) => { map[m.key] = (m as any).map_to ?? m.key; });
     setLocalKeys(map);
   }, [markers]);
+
+  // Ensure ghost element exists for dragging without causing React re-renders
+  useEffect(() => {
+    if (!ghostRef.current && containerRef.current) {
+      const el = document.createElement('div');
+      el.style.position = 'absolute';
+      el.style.display = 'none';
+      el.style.pointerEvents = 'none';
+      el.className = 'bg-indigo-600 border border-indigo-700 px-2 py-1 rounded max-w-xs shadow-md text-white text-xs';
+      containerRef.current.appendChild(el);
+      ghostRef.current = el;
+    }
+    return () => {
+      try {
+        if (ghostRef.current && containerRef.current) {
+          containerRef.current.removeChild(ghostRef.current);
+        }
+      } catch (e) {
+        // ignore
+      }
+      ghostRef.current = null;
+    };
+  }, []);
 
   // Map page coordinates to percentages based on displayed size (use getBoundingClientRect to account for CSS scaling)
   const toPct = (x: number, y: number) => {
@@ -222,24 +249,65 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
     const rect = el.getBoundingClientRect();
     const offsetX = e.clientX - rect.left;
     const offsetY = e.clientY - rect.top;
-    setDragging({ key, offsetX, offsetY });
+    const info = { key, offsetX, offsetY };
+    setDragging(info);
+    draggingRef.current = info;
+
+    // position and show ghost
+    const canvasRect = canvasRef.current?.getBoundingClientRect();
+    const marker = markers.find((m) => m.key === key);
+    if (ghostRef.current && canvasRect && marker) {
+      const { x, y } = fromPct(marker.x_pct, marker.y_pct);
+      ghostRef.current.style.left = `${x}px`;
+      ghostRef.current.style.top = `${y}px`;
+      ghostRef.current.style.display = 'block';
+      ghostRef.current.textContent = (previewEnabled ? (previewObj?.[localKeys[marker.key] ?? marker.key] ?? sampleData?.[localKeys[marker.key] ?? marker.key] ?? marker.key) : marker.key) as string;
+    }
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!dragging || !containerRef.current) return;
-    const containerRect = containerRef.current.getBoundingClientRect();
-    // The marker element's offset is measured relative to the container, but canvas may be positioned within container.
-    const x = e.clientX - containerRect.left - dragging.offsetX;
-    const y = e.clientY - containerRect.top - dragging.offsetY;
-    // Convert screen coordinate to canvas-local by calculating position relative to canvas bounding rect
+  // We will track pointer movement globally while dragging but avoid updating React state
+  // on every move. Instead we move a ghost DOM element (ghostRef) and commit the new
+  // marker position on mouseup.
+  const handleGlobalMouseMove = (e: MouseEvent) => {
+    const info = draggingRef.current;
+    if (!info) return;
+    const canvas = canvasRef.current;
+    if (!canvas || !ghostRef.current) return;
+    const canvasRect = canvas.getBoundingClientRect();
+    const localX = e.clientX - canvasRect.left - info.offsetX;
+    const localY = e.clientY - canvasRect.top - info.offsetY;
+    // Clamp to canvas bounds
+    const clampedX = Math.max(0, Math.min(canvasRect.width, localX));
+    const clampedY = Math.max(0, Math.min(canvasRect.height, localY));
+    ghostRef.current.style.left = `${clampedX}px`;
+    ghostRef.current.style.top = `${clampedY}px`;
+  };
+
+  const handleGlobalMouseUp = (e: MouseEvent) => {
+    const info = draggingRef.current;
+    if (!info) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const canvasRect = canvas.getBoundingClientRect();
-    const localX = e.clientX - canvasRect.left - dragging.offsetX;
-    const localY = e.clientY - canvasRect.top - dragging.offsetY;
+    const localX = e.clientX - canvasRect.left - info.offsetX;
+    const localY = e.clientY - canvasRect.top - info.offsetY;
     const { x_pct, y_pct } = toPct(localX, localY);
-    setMarkers((prev) => prev.map((m) => (m.key === dragging.key ? { ...m, x_pct: Math.max(0, Math.min(1, x_pct)), y_pct: Math.max(0, Math.min(1, y_pct)) } : m)));
+    setMarkers((prev) => prev.map((m) => (m.key === info.key ? { ...m, x_pct: Math.max(0, Math.min(1, x_pct)), y_pct: Math.max(0, Math.min(1, y_pct)) } : m)));
+
+    // hide ghost and clear dragging refs
+    if (ghostRef.current) ghostRef.current.style.display = 'none';
+    draggingRef.current = null;
+    setDragging(null);
   };
+
+  useEffect(() => {
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [markers, previewEnabled, previewObj, sampleData]);
 
   // Click on canvas to position active field (if selected)
   const handleCanvasClick = (e: React.MouseEvent) => {
@@ -287,7 +355,7 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
       const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
       const schemaObj: Record<string, any> = {};
       markers.forEach((m) => {
-        schemaObj[m.key] = { page: m.page, x_pct: m.x_pct, y_pct: m.y_pct };
+        schemaObj[m.key] = { page: m.page, x_pct: m.x_pct, y_pct: m.y_pct, map_to: localKeys[m.key] ?? m.key };
       });
       const id = encodeURIComponent(String(templateId));
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/templates/${id}/update/`, {
@@ -329,8 +397,14 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
               <button onClick={() => setZoom((z) => Math.min(3, z + 0.25))} className="px-2 py-1 bg-white border rounded">+</button>
             </div>
             <div className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded">
-              <label className="text-sm">Campo activo:</label>
-              <select value={activeField ?? ''} onChange={(e) => setActiveField(e.target.value || null)} className="px-2 py-1 border rounded bg-white text-sm">
+              <label htmlFor="active-field-select" className="text-sm">Campo activo:</label>
+              <select 
+                id="active-field-select"
+                value={activeField ?? ''} 
+                onChange={(e) => setActiveField(e.target.value || null)} 
+                aria-label="Seleccionar campo activo para posicionar"
+                className="px-2 py-1 border rounded bg-white text-sm"
+              >
                 <option value="">(ninguno)</option>
                 {markers.map((m) => (<option key={m.key} value={m.key}>{m.key}</option>))}
               </select>
@@ -359,13 +433,14 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
         {error && <div className="text-red-600">{error}</div>}
 
         <div className="flex flex-col md:flex-row gap-4">
-          <div ref={containerRef} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} className="relative border flex-1 min-h-[200px]" onClick={handleCanvasClick}>
+          <div ref={containerRef} onMouseUp={handleMouseUp} className="relative border flex-1 min-h-[200px]" onClick={handleCanvasClick}>
             <canvas ref={canvasRef} style={{ display: pdfUrl ? 'block' : 'none', maxWidth: '100%', height: 'auto' }} />
 
             {/* Overlay markers */}
             {markers.map((m) => {
               const pos = fromPct(m.x_pct, m.y_pct);
-              const previewText = previewEnabled ? (previewObj?.[m.key] ?? sampleData?.[m.key] ?? m.key) : m.key;
+              const mappedKey = localKeys[m.key] ?? m.key;
+              const previewText = previewEnabled ? (previewObj?.[mappedKey] ?? sampleData?.[mappedKey] ?? m.key) : m.key;
               return (
                 <div
                     key={m.key}
@@ -410,15 +485,13 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
                     className="w-full px-2 py-1 border rounded text-sm mb-1"
                   />
 
-                  <label className="text-xs text-gray-600">Mapear a dato de muestra</label>
+                  <label htmlFor={`field-map-${m.key}`} className="text-xs text-gray-600">Mapear a dato de muestra</label>
                   <select
+                    id={`field-map-${m.key}`}
                     className="w-full px-2 py-1 border rounded text-sm mb-1"
                     value={localKeys[m.key] ?? m.key}
                     onChange={(e) => setLocalKeys((prev) => ({ ...prev, [m.key]: e.target.value }))}
-                    onBlur={() => {
-                      const newVal = (localKeys[m.key] || '').trim();
-                      if (newVal && newVal !== m.key) updateMarkerKey(m.key, newVal);
-                    }}
+                    aria-label={`Mapear campo ${m.key} a dato de muestra`}
                   >
                     <option value={m.key}>(usar clave actual)</option>
                     {Object.keys(sampleData || {}).map((k) => (
@@ -426,12 +499,14 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
                     ))}
                   </select>
 
-                  <label className="text-xs text-gray-600">Página</label>
+                  <label htmlFor={`field-page-${m.key}`} className="text-xs text-gray-600">Página</label>
                   <input
+                    id={`field-page-${m.key}`}
                     type="number"
                     min={1}
                     value={m.page}
                     onChange={(e) => updateMarkerPage(m.key, Number(e.target.value) || 1)}
+                    aria-label={`Número de página para campo ${m.key}`}
                     className="w-full px-2 py-1 border rounded text-sm mb-2"
                   />
 

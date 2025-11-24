@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { normalizeRole } from '@/lib/role';
 import axios from "axios";
 
 interface LoginFormProps {
@@ -25,30 +26,17 @@ export default function LoginForm({ onLogin, onRoleSet }: LoginFormProps) {
         password,
       });
 
-      // Debug: Log FULL response first
-      console.log('=== LOGIN RESPONSE DEBUG ===');
-      console.log('Full response:', response);
-      console.log('Response data:', response.data);
-      console.log('Response data keys:', Object.keys(response.data));
-      
-      const { access, refresh, role } = response.data;
+  const { access, refresh, role } = response.data;
 
-      // Debug: Log role information
-      console.log('Access token:', access ? 'EXISTS' : 'MISSING');
-      console.log('Refresh token:', refresh ? 'EXISTS' : 'MISSING');
-      console.log('User role received:', role);
-      console.log('Role type:', typeof role);
-      console.log('Role is undefined?', role === undefined);
+  // Normalize role and save tokens/user info to localStorage
+  const canonical = normalizeRole(role) || 'technician';
+  localStorage.setItem('access_token', access);
+  localStorage.setItem('refresh_token', refresh);
+  localStorage.setItem('user_role', canonical);
+  localStorage.setItem('username', username); // Save username too
 
-      // Save tokens to localStorage
-      localStorage.setItem('access_token', access);
-      localStorage.setItem('refresh_token', refresh);
-      localStorage.setItem('user_role', role);
-      localStorage.setItem('username', username); // Save username too
-
-      // Verify saved role
-      console.log('Role saved to localStorage:', localStorage.getItem('user_role'));
-      console.log('Username saved to localStorage:', localStorage.getItem('username'));
+  // Dispatch custom event to notify Layout about auth change
+  window.dispatchEvent(new Event('auth-changed'));
 
       onLogin(access);
       onRoleSet(role);

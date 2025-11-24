@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.pagination import PageNumberPagination
+from .pagination import StandardResultsSetPagination
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
 from .models import Equipment, Maintenance, Photo, Signature, SecondSignature, Report
@@ -25,7 +26,8 @@ class EquipmentViewSet(viewsets.ModelViewSet):
     queryset = Equipment.objects.all().order_by('-created_at')
     serializer_class = EquipmentSerializer
     permission_classes = [IsAuthenticated]  # Default base
-    pagination_class = PageNumberPagination
+    # Use standard pagination that accepts `?page_size=` from the client
+    pagination_class = StandardResultsSetPagination
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
@@ -53,7 +55,7 @@ class MaintenanceViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminOrTechnician]
     filter_backends = [DjangoFilterBackend]
     filterset_class = MaintenanceFilter
-    pagination_class = PageNumberPagination
+    pagination_class = StandardResultsSetPagination
 
     def get_permissions(self):
         if self.action in ['update', 'partial_update', 'destroy']:
@@ -223,42 +225,77 @@ class DashboardView(APIView):
         """
         Estadísticas generales del dashboard
         """
-        # Total de equipos
-        total_equipment = Equipment.objects.count()
-        
-        # Total de mantenimientos
-        total_maintenances = Maintenance.objects.count()
-        
-        # Mantenimientos pendientes
-        pending_maintenances = Maintenance.objects.filter(
-            Q(activities__icontains='pendiente') | Q(status='pending')
-        ).distinct().count()
-        
-        # Mantenimientos del mes actual
+        # Build base queryset for maintenances and apply filters from query params
+        qs = Maintenance.objects.select_related('equipment', 'sede_rel', 'dependencia_rel', 'subdependencia', 'technician').all()
+
+        # Supported filters (client can send these query params)
+        sede_id = request.query_params.get('sede_id') or request.query_params.get('sede')
+        dependencia_id = request.query_params.get('dependencia_id') or request.query_params.get('dependencia')
+        subdependencia_id = request.query_params.get('subdependencia_id') or request.query_params.get('subdependencia')
+        equipment_placa = request.query_params.get('equipment_placa') or request.query_params.get('placa')
+        search = request.query_params.get('search')
+
+        if sede_id:
+            # prefer FK numeric id
+            try:
+                sid = int(sede_id)
+                qs = qs.filter(sede_rel_id=sid)
+            except Exception:
+                qs = qs.filter(Q(sede__icontains=sede_id) | Q(sede_rel__nombre__icontains=sede_id))
+
+        if dependencia_id:
+            try:
+                did = int(dependencia_id)
+                qs = qs.filter(dependencia_rel_id=did)
+            except Exception:
+                qs = qs.filter(Q(dependencia__icontains=dependencia_id) | Q(dependencia_rel__nombre__icontains=dependencia_id))
+
+        if subdependencia_id:
+            try:
+                sid = int(subdependencia_id)
+                qs = qs.filter(subdependencia_id=sid)
+            except Exception:
+                qs = qs.filter(Q(subdependencia__nombre__icontains=subdependencia_id) | Q(subdependencia__nombre__icontains=subdependencia_id))
+
+        if equipment_placa:
+            qs = qs.filter(Q(equipment__code__icontains=equipment_placa) | Q(placa__icontains=equipment_placa))
+
+        if search:
+            qs = qs.filter(
+                Q(equipment__code__icontains=search) |
+                Q(equipment__name__icontains=search) |
+                Q(dependencia__icontains=search) |
+                Q(sede__icontains=search) |
+                Q(subdependencia__icontains=search) |
+                Q(description__icontains=search)
+            )
+
+        # Totales basados en el queryset filtrado (si no hubo filtros, serán los globales)
+        total_maintenances = qs.count()
+        total_equipment = qs.values('equipment_id').distinct().count()
+        total_incidents = qs.filter(is_incident=True).count()
+        pending_maintenances = qs.filter(Q(activities__icontains='pendiente') | Q(status='pending')).distinct().count()
+
+        # Mantenimientos del mes para el queryset
         current_month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        maintenances_this_month = Maintenance.objects.filter(
-            created_at__gte=current_month_start
-        ).count()
-        
-        # Equipos por tipo/categoría (si existe)
-        equipment_by_type = Equipment.objects.values('name').annotate(
-            count=Count('id')
-        )[:5]  # Top 5
-        
-        # Mantenimientos recientes
-        recent_maintenances = Maintenance.objects.select_related(
-            'equipment', 'technician'
-        ).order_by('-created_at')[:5]
-        
+        maintenances_this_month = qs.filter(created_at__gte=current_month_start).count()
+
+        # Equipos por tipo (top 5) basado en filtered queryset
+        equipment_by_type = qs.values('equipment__name').annotate(count=Count('equipment_id')).order_by('-count')[:5]
+
+        # Mantenimientos recientes: siempre limitar a los últimos 5 del queryset
+        recent_maintenances = qs.order_by('-created_at')[:5]
+
         return Response({
-            'total_equipment': total_equipment,
-            'total_maintenances': total_maintenances,
-            'pending_maintenances': pending_maintenances,
-            'maintenances_this_month': maintenances_this_month,
+            'overview': {
+                'total_equipment': total_equipment,
+                'total_maintenances': total_maintenances,
+                'total_incidents': total_incidents,
+                'pending_maintenances': pending_maintenances,
+                'maintenances_this_month': maintenances_this_month,
+            },
             'equipment_by_type': list(equipment_by_type),
-            'recent_maintenances': MaintenanceSerializer(
-                recent_maintenances, many=True
-            ).data
+            'recent_maintenances': MaintenanceSerializer(recent_maintenances, many=True).data,
         })
 
 
