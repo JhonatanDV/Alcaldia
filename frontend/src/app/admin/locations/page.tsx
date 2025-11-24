@@ -11,10 +11,8 @@ interface Sede {
   id: number;
   nombre: string;
   direccion?: string;
-  telefono?: string;
-  codigo?: string;
-  activo: boolean;
   dependencias_count?: number;
+  activo: boolean;
 }
 
 interface Dependencia {
@@ -22,11 +20,8 @@ interface Dependencia {
   sede: number;
   sede_nombre: string;
   nombre: string;
-  codigo?: string;
-  responsable?: string;
-  email?: string;
-  activo: boolean;
   subdependencias_count?: number;
+  activo: boolean;
 }
 
 interface Subdependencia {
@@ -35,8 +30,6 @@ interface Subdependencia {
   dependencia_nombre: string;
   sede_nombre: string;
   nombre: string;
-  codigo?: string;
-  responsable?: string;
   activo: boolean;
 }
 
@@ -64,8 +57,6 @@ export default function LocationManagementPage() {
   const [sedeForm, setSedeForm] = useState({
     nombre: '',
     direccion: '',
-    telefono: '',
-    codigo: '',
     activo: true,
   });
 
@@ -76,9 +67,6 @@ export default function LocationManagementPage() {
   const [dependenciaForm, setDependenciaForm] = useState({
     sede: 0,
     nombre: '',
-    codigo: '',
-    responsable: '',
-    email: '',
     activo: true,
   });
 
@@ -89,8 +77,6 @@ export default function LocationManagementPage() {
   const [subdependenciaForm, setSubdependenciaForm] = useState({
     dependencia: 0,
     nombre: '',
-    codigo: '',
-    responsable: '',
     activo: true,
   });
 
@@ -157,10 +143,19 @@ export default function LocationManagementPage() {
       const headers = { Authorization: `Bearer ${token}` };
 
       if (editingSede) {
-        await axios.put(`${API_URL}/api/config/sedes/${editingSede.id}/`, sedeForm, { headers });
+        // send nombre, direccion and activo
+        await axios.put(`${API_URL}/api/config/sedes/${editingSede.id}/`, {
+          nombre: sedeForm.nombre,
+          direccion: sedeForm.direccion,
+          activo: sedeForm.activo,
+        }, { headers });
         setSuccess('Sede actualizada correctamente');
       } else {
-        await axios.post(`${API_URL}/api/config/sedes/`, sedeForm, { headers });
+        await axios.post(`${API_URL}/api/config/sedes/`, {
+          nombre: sedeForm.nombre,
+          direccion: sedeForm.direccion,
+          activo: sedeForm.activo,
+        }, { headers });
         setSuccess('Sede creada correctamente');
       }
 
@@ -201,8 +196,6 @@ export default function LocationManagementPage() {
       setSedeForm({
         nombre: sede.nombre,
         direccion: sede.direccion || '',
-        telefono: sede.telefono || '',
-        codigo: sede.codigo || '',
         activo: sede.activo,
       });
     } else {
@@ -215,8 +208,6 @@ export default function LocationManagementPage() {
     setSedeForm({
       nombre: '',
       direccion: '',
-      telefono: '',
-      codigo: '',
       activo: true,
     });
     setEditingSede(null);
@@ -238,10 +229,18 @@ export default function LocationManagementPage() {
       const headers = { Authorization: `Bearer ${token}` };
 
       if (editingDependencia) {
-        await axios.put(`${API_URL}/api/config/dependencias/${editingDependencia.id}/`, dependenciaForm, { headers });
+        await axios.put(`${API_URL}/api/config/dependencias/${editingDependencia.id}/`, {
+          sede: dependenciaForm.sede,
+          nombre: dependenciaForm.nombre,
+          activo: dependenciaForm.activo,
+        }, { headers });
         setSuccess('Dependencia actualizada correctamente');
       } else {
-        await axios.post(`${API_URL}/api/config/dependencias/`, dependenciaForm, { headers });
+        await axios.post(`${API_URL}/api/config/dependencias/`, {
+          sede: dependenciaForm.sede,
+          nombre: dependenciaForm.nombre,
+          activo: dependenciaForm.activo,
+        }, { headers });
         setSuccess('Dependencia creada correctamente');
       }
 
@@ -282,10 +281,7 @@ export default function LocationManagementPage() {
       setDependenciaForm({
         sede: dependencia.sede,
         nombre: dependencia.nombre,
-        codigo: dependencia.codigo || '',
-        responsable: dependencia.responsable || '',
-        email: dependencia.email || '',
-        activo: dependencia.activo,
+        activo: (dependencia as any).activo ?? true,
       });
     } else {
       resetDependenciaForm();
@@ -297,9 +293,6 @@ export default function LocationManagementPage() {
     setDependenciaForm({
       sede: 0,
       nombre: '',
-      codigo: '',
-      responsable: '',
-      email: '',
       activo: true,
     });
     setEditingDependencia(null);
@@ -321,10 +314,18 @@ export default function LocationManagementPage() {
       const headers = { Authorization: `Bearer ${token}` };
 
       if (editingSubdependencia) {
-        await axios.put(`${API_URL}/api/config/subdependencias/${editingSubdependencia.id}/`, subdependenciaForm, { headers });
+        await axios.put(`${API_URL}/api/config/subdependencias/${editingSubdependencia.id}/`, {
+          dependencia: subdependenciaForm.dependencia,
+          nombre: subdependenciaForm.nombre,
+          activo: subdependenciaForm.activo,
+        }, { headers });
         setSuccess('Subdependencia actualizada correctamente');
       } else {
-        await axios.post(`${API_URL}/api/config/subdependencias/`, subdependenciaForm, { headers });
+        await axios.post(`${API_URL}/api/config/subdependencias/`, {
+          dependencia: subdependenciaForm.dependencia,
+          nombre: subdependenciaForm.nombre,
+          activo: subdependenciaForm.activo,
+        }, { headers });
         setSuccess('Subdependencia creada correctamente');
       }
 
@@ -365,9 +366,7 @@ export default function LocationManagementPage() {
       setSubdependenciaForm({
         dependencia: subdependencia.dependencia,
         nombre: subdependencia.nombre,
-        codigo: subdependencia.codigo || '',
-        responsable: subdependencia.responsable || '',
-        activo: subdependencia.activo,
+        activo: (subdependencia as any).activo ?? true,
       });
     } else {
       resetSubdependenciaForm();
@@ -379,8 +378,6 @@ export default function LocationManagementPage() {
     setSubdependenciaForm({
       dependencia: 0,
       nombre: '',
-      codigo: '',
-      responsable: '',
       activo: true,
     });
     setEditingSubdependencia(null);
@@ -391,8 +388,8 @@ export default function LocationManagementPage() {
       <div className="space-y-6">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6">
-          <h1 className="text-3xl font-bold text-gray-900">Gestión de Ubicaciones</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-3xl font-bold text-black">Gestión de Ubicaciones</h1>
+          <p className="text-sm text-black mt-1">
             Administre sedes, dependencias y subdependencias de la organización
           </p>
         </div>
@@ -456,22 +453,18 @@ export default function LocationManagementPage() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dirección</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Teléfono</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dependencias</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase">Nombre</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase">Dirección</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase">Estado</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase">Dependencias</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase">Acciones</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {sedes.map((sede) => (
                         <tr key={sede.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{sede.nombre}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{sede.codigo || '-'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{sede.direccion || '-'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{sede.telefono || '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-black">{sede.nombre}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{sede.direccion || '-'}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {sede.activo ? (
                               <span className="px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">Activo</span>
@@ -479,7 +472,7 @@ export default function LocationManagementPage() {
                               <span className="px-2 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full">Inactivo</span>
                             )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{sede.dependencias_count || 0}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{sede.dependencias_count || 0}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
                             <button
                               onClick={() => openSedeModal(sede)}
@@ -525,30 +518,18 @@ export default function LocationManagementPage() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sede</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsable</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subdependencias</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase">Sede</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase">Nombre</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase">Subdependencias</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase">Acciones</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {dependencias.map((dep) => (
                         <tr key={dep.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{dep.sede_nombre}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{dep.nombre}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{dep.codigo || '-'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{dep.responsable || '-'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {dep.activo ? (
-                              <span className="px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">Activo</span>
-                            ) : (
-                              <span className="px-2 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full">Inactivo</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{dep.subdependencias_count || 0}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{dep.sede_nombre}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-black">{dep.nombre}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{dep.subdependencias_count || 0}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
                             <button
                               onClick={() => openDependenciaModal(dep)}
@@ -594,30 +575,18 @@ export default function LocationManagementPage() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sede</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dependencia</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsable</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase">Sede</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase">Dependencia</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase">Nombre</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase">Acciones</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {subdependencias.map((sub) => (
                         <tr key={sub.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{sub.sede_nombre}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{sub.dependencia_nombre}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{sub.nombre}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{sub.codigo || '-'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{sub.responsable || '-'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {sub.activo ? (
-                              <span className="px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">Activo</span>
-                            ) : (
-                              <span className="px-2 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full">Inactivo</span>
-                            )}
-                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{sub.sede_nombre}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-black">{sub.dependencia_nombre}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-black">{sub.nombre}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
                             <button
                               onClick={() => openSubdependenciaModal(sub)}
@@ -667,15 +636,6 @@ export default function LocationManagementPage() {
                   />
                 </div>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Código</label>
-                  <input
-                    type="text"
-                    value={sedeForm.codigo}
-                    onChange={(e) => setSedeForm({ ...sedeForm, codigo: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
-                  />
-                </div>
-                <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700">Dirección</label>
                   <input
                     type="text"
@@ -684,26 +644,17 @@ export default function LocationManagementPage() {
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
                   />
                 </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Teléfono</label>
+                <div className="mb-4 flex items-center">
                   <input
-                    type="text"
-                    value={sedeForm.telefono}
-                    onChange={(e) => setSedeForm({ ...sedeForm, telefono: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
+                    id="sede-activo"
+                    type="checkbox"
+                    checked={sedeForm.activo}
+                    onChange={(e) => setSedeForm({ ...sedeForm, activo: e.target.checked })}
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded"
                   />
+                  <label htmlFor="sede-activo" className="ml-2 text-sm text-gray-700">Activo</label>
                 </div>
-                <div className="mb-4">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={sedeForm.activo}
-                      onChange={(e) => setSedeForm({ ...sedeForm, activo: e.target.checked })}
-                      className="mr-2"
-                    />
-                    <span className="text-sm text-gray-700">Activo</span>
-                  </label>
-                </div>
+                {/* Only nombre and direccion are required for sedes */}
                 <div className="flex justify-end space-x-2">
                   <button
                     type="button"
@@ -762,44 +713,17 @@ export default function LocationManagementPage() {
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
                   />
                 </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Código</label>
+                <div className="mb-4 flex items-center">
                   <input
-                    type="text"
-                    value={dependenciaForm.codigo}
-                    onChange={(e) => setDependenciaForm({ ...dependenciaForm, codigo: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
+                    id="dependencia-activo"
+                    type="checkbox"
+                    checked={dependenciaForm.activo}
+                    onChange={(e) => setDependenciaForm({ ...dependenciaForm, activo: e.target.checked })}
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded"
                   />
+                  <label htmlFor="dependencia-activo" className="ml-2 text-sm text-gray-700">Activo</label>
                 </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Responsable</label>
-                  <input
-                    type="text"
-                    value={dependenciaForm.responsable}
-                    onChange={(e) => setDependenciaForm({ ...dependenciaForm, responsable: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
-                  <input
-                    type="email"
-                    value={dependenciaForm.email}
-                    onChange={(e) => setDependenciaForm({ ...dependenciaForm, email: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={dependenciaForm.activo}
-                      onChange={(e) => setDependenciaForm({ ...dependenciaForm, activo: e.target.checked })}
-                      className="mr-2"
-                    />
-                    <span className="text-sm text-gray-700">Activo</span>
-                  </label>
-                </div>
+                {/* Only sede + nombre for dependencias */}
                 <div className="flex justify-end space-x-2">
                   <button
                     type="button"
@@ -858,35 +782,17 @@ export default function LocationManagementPage() {
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
                   />
                 </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Código</label>
+                <div className="mb-4 flex items-center">
                   <input
-                    type="text"
-                    value={subdependenciaForm.codigo}
-                    onChange={(e) => setSubdependenciaForm({ ...subdependenciaForm, codigo: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
+                    id="subdependencia-activo"
+                    type="checkbox"
+                    checked={subdependenciaForm.activo}
+                    onChange={(e) => setSubdependenciaForm({ ...subdependenciaForm, activo: e.target.checked })}
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded"
                   />
+                  <label htmlFor="subdependencia-activo" className="ml-2 text-sm text-gray-700">Activo</label>
                 </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Responsable</label>
-                  <input
-                    type="text"
-                    value={subdependenciaForm.responsable}
-                    onChange={(e) => setSubdependenciaForm({ ...subdependenciaForm, responsable: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={subdependenciaForm.activo}
-                      onChange={(e) => setSubdependenciaForm({ ...subdependenciaForm, activo: e.target.checked })}
-                      className="mr-2"
-                    />
-                    <span className="text-sm text-gray-700">Activo</span>
-                  </label>
-                </div>
+                {/* Only dependencia + nombre for subdependencias */}
                 <div className="flex justify-end space-x-2">
                   <button
                     type="button"

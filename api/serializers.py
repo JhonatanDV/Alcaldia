@@ -19,7 +19,8 @@ class SedeSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Sede
-        fields = '__all__'
+        # Exponer sólo los campos requeridos por UI: id, nombre y direccion
+        fields = ['id', 'nombre', 'direccion', 'activo', 'dependencias_count']
     
     def get_dependencias_count(self, obj):
         return obj.dependencias.count()
@@ -31,7 +32,8 @@ class DependenciaSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Dependencia
-        fields = '__all__'
+        # Sólo exponer id, nombre, direccion (direccion se tomará desde la sede) y sede
+        fields = ['id', 'nombre', 'sede', 'sede_nombre', 'activo', 'subdependencias_count']
     
     def get_subdependencias_count(self, obj):
         return obj.subdependencias.count()
@@ -43,7 +45,8 @@ class SubdependenciaSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Subdependencia
-        fields = '__all__'
+        # Exponer sólo id, nombre y dependencia
+        fields = ['id', 'nombre', 'dependencia', 'dependencia_nombre', 'sede_nombre', 'activo']
 
 
 class PhotoSerializer(serializers.ModelSerializer):

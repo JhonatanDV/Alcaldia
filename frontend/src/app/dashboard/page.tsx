@@ -233,18 +233,18 @@ export default function DashboardPage() {
         <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard de Mantenimientos</h1>
-              <p className="text-sm text-gray-500 mt-1">Vista general del sistema</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-black">Dashboard de Mantenimientos</h1>
+              <p className="text-sm text-black mt-1">Vista general del sistema</p>
             </div>
           </div>
         </div>
 
         {/* Search Filters (simplified) */}
         <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Filtros del Dashboard</h3>
+          <h3 className="text-lg font-medium text-black mb-4">Filtros del Dashboard</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
-              <label htmlFor="dashboard-search" className="block text-sm font-medium text-gray-700">Búsqueda General</label>
+              <label htmlFor="dashboard-search" className="block text-sm font-medium text-black">Búsqueda General</label>
               <input
                 type="text"
                 id="dashboard-search"
@@ -255,7 +255,7 @@ export default function DashboardPage() {
               />
             </div>
             <div>
-              <label htmlFor="dashboard-dependencia" className="block text-sm font-medium text-gray-700">Dependencia</label>
+              <label htmlFor="dashboard-dependencia" className="block text-sm font-medium text-black">Dependencia</label>
               <select
                 id="dashboard-dependencia"
                 value={searchFilters.equipment_dependencia || ''}
@@ -267,7 +267,7 @@ export default function DashboardPage() {
               </select>
             </div>
             <div>
-              <label htmlFor="dashboard-sede" className="block text-sm font-medium text-gray-700">Sede</label>
+              <label htmlFor="dashboard-sede" className="block text-sm font-medium text-black">Sede</label>
               <select
                 id="dashboard-sede"
                 value={searchFilters.sede || ''}
@@ -281,7 +281,7 @@ export default function DashboardPage() {
             <div className="flex items-end">
               <button
                 onClick={() => setSearchFilters({})}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-black bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
                 Limpiar Filtros
               </button>
@@ -289,30 +289,30 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <h2 className="text-3xl font-bold text-gray-900 mb-8">Dashboard de Mantenimientos</h2>
+  <h2 className="text-3xl font-bold text-black mb-8">Dashboard de Mantenimientos</h2>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-gray-500 text-sm font-medium">Total Mantenimientos</h3>
+            <h3 className="text-black text-sm font-medium">Total Mantenimientos</h3>
             <p className="text-3xl font-bold text-blue-600 mt-2">
               {filteredStats?.summary.total_maintenances || 0}
             </p>
           </div>
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-gray-500 text-sm font-medium">Total Equipos</h3>
+            <h3 className="text-black text-sm font-medium">Total Equipos</h3>
             <p className="text-3xl font-bold text-green-600 mt-2">
               {filteredStats?.summary.total_equipments || 0}
             </p>
           </div>
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-gray-500 text-sm font-medium">Reportes Generados</h3>
+            <h3 className="text-black text-sm font-medium">Reportes Generados</h3>
             <p className="text-3xl font-bold text-purple-600 mt-2">
               {filteredStats?.summary.total_reports || 0}
             </p>
           </div>
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-gray-500 text-sm font-medium">Incidentes</h3>
+            <h3 className="text-black text-sm font-medium">Incidentes</h3>
             <p className="text-3xl font-bold text-red-600 mt-2">
               {filteredStats?.summary.total_incidents || 0}
             </p>
@@ -337,8 +337,8 @@ export default function DashboardPage() {
                   <Line type="monotone" dataKey="count" stroke="#8884d8" name="Mantenimientos" />
                 </LineChart>
               </ResponsiveContainer>
-            ) : (
-              <p className="text-gray-500 text-center py-20">No hay datos disponibles</p>
+              ) : (
+              <p className="text-black text-center py-20">No hay datos disponibles</p>
             )}
           </div>
 
@@ -362,8 +362,8 @@ export default function DashboardPage() {
                   <Bar dataKey="count" fill="#82ca9d" name="Mantenimientos" />
                 </BarChart>
               </ResponsiveContainer>
-            ) : (
-              <p className="text-gray-500 text-center py-20">No hay datos disponibles</p>
+              ) : (
+              <p className="text-black text-center py-20">No hay datos disponibles</p>
             )}
           </div>
 
@@ -384,7 +384,7 @@ export default function DashboardPage() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-gray-500 text-center py-20">No hay datos disponibles</p>
+              <p className="text-black text-center py-20">No hay datos disponibles</p>
             )}
           </div>
         </div>
@@ -451,7 +451,7 @@ export default function DashboardPage() {
                 </table>
               </div>
             ) : (
-              <p className="text-gray-500 text-center py-10">No hay equipos con mantenimientos registrados</p>
+              <p className="text-black text-center py-10">No hay equipos con mantenimientos registrados</p>
             )}
           </div>
 
@@ -493,7 +493,7 @@ export default function DashboardPage() {
                 </table>
               </div>
             ) : (
-              <p className="text-gray-500 text-center py-10">Todos los equipos tienen mantenimientos registrados</p>
+              <p className="text-black text-center py-10">Todos los equipos tienen mantenimientos registrados</p>
             )}
           </div>
         </div>
@@ -588,8 +588,8 @@ export default function DashboardPage() {
                 </tbody>
               </table>
             </div>
-          ) : (
-            <p className="text-gray-500 text-center py-10">No hay mantenimientos registrados</p>
+            ) : (
+            <p className="text-black text-center py-10">No hay mantenimientos registrados</p>
           )}
         </div>
       </div>

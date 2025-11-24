@@ -25,6 +25,7 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
   const renderTaskRef = useRef<any>(null);
   const [zoom, setZoom] = useState<number>(1.5);
   const [activeField, setActiveField] = useState<string | null>(null);
+  const [localKeys, setLocalKeys] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const fetchTemplate = async () => {
@@ -191,6 +192,13 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
     }
     return;
   }, [markers, previewOnCanvas, previewEnabled, previewObj, sampleData, drawOverlay]);
+
+  // Keep a local editable copy of marker keys to avoid committing changes on every keystroke
+  useEffect(() => {
+    const map: Record<string, string> = {};
+    markers.forEach((m) => { map[m.key] = m.key; });
+    setLocalKeys(map);
+  }, [markers]);
 
   // Map page coordinates to percentages based on displayed size (use getBoundingClientRect to account for CSS scaling)
   const toPct = (x: number, y: number) => {
@@ -392,16 +400,25 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
                 <div key={m.key} className="p-2 border rounded bg-gray-50">
                   <label className="text-xs text-gray-600">Clave (nombre del campo)</label>
                   <input
-                    value={m.key}
-                    onChange={(e) => updateMarkerKey(m.key, e.target.value)}
+                    value={localKeys[m.key] ?? m.key}
+                    onChange={(e) => setLocalKeys((prev) => ({ ...prev, [m.key]: e.target.value }))}
+                    onBlur={() => {
+                      const newVal = (localKeys[m.key] || '').trim();
+                      if (newVal && newVal !== m.key) updateMarkerKey(m.key, newVal);
+                    }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur(); } }}
                     className="w-full px-2 py-1 border rounded text-sm mb-1"
                   />
 
                   <label className="text-xs text-gray-600">Mapear a dato de muestra</label>
                   <select
                     className="w-full px-2 py-1 border rounded text-sm mb-1"
-                    value={m.key}
-                    onChange={(e) => updateMarkerKey(m.key, e.target.value)}
+                    value={localKeys[m.key] ?? m.key}
+                    onChange={(e) => setLocalKeys((prev) => ({ ...prev, [m.key]: e.target.value }))}
+                    onBlur={() => {
+                      const newVal = (localKeys[m.key] || '').trim();
+                      if (newVal && newVal !== m.key) updateMarkerKey(m.key, newVal);
+                    }}
                   >
                     <option value={m.key}>(usar clave actual)</option>
                     {Object.keys(sampleData || {}).map((k) => (

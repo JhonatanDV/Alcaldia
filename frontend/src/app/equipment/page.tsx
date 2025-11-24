@@ -83,8 +83,8 @@ export default function EquipmentListPage() {
     <Layout userRole={userRole} onLogout={handleLogout}>
       <div className="space-y-6">
         <div className="bg-white rounded-lg shadow-sm p-6">
-          <h1 className="text-3xl font-bold text-gray-900">Equipos</h1>
-          <p className="text-sm text-gray-500 mt-1">Lista de equipos registrados</p>
+          <h1 className="text-3xl font-bold text-black">Equipos</h1>
+          <p className="text-sm text-black mt-1">Lista de equipos registrados</p>
         </div>
 
         {error && (
@@ -102,27 +102,27 @@ export default function EquipmentListPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Código</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Nombre</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Ubicación</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-black">Código</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-black">Nombre</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-black">Ubicación</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
                 {loading && (
                   <tr>
-                    <td colSpan={3} className="px-4 py-6 text-center text-sm text-gray-500">Cargando...</td>
+                    <td colSpan={3} className="px-4 py-6 text-center text-sm text-black">Cargando...</td>
                   </tr>
                 )}
                 {!loading && equipments.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="px-4 py-6 text-center text-sm text-gray-500">No hay equipos registrados</td>
+                    <td colSpan={3} className="px-4 py-6 text-center text-sm text-black">No hay equipos registrados</td>
                   </tr>
                 )}
                 {equipments.map((eq) => (
                   <tr key={eq.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm text-gray-900">{eq.code}</td>
                     <td className="px-4 py-3 text-sm text-gray-900 truncate">{eq.name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{eq.location || 'Sin ubicación'}</td>
+                    <td className="px-4 py-3 text-sm text-black">{eq.location || 'Sin ubicación'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -131,7 +131,7 @@ export default function EquipmentListPage() {
 
           {/* Paginación estilizada */}
           <div className="mt-4 flex items-center justify-between">
-            <div className="text-sm text-gray-600">Página {page} de {totalPages}</div>
+            <div className="text-sm text-black">Página {page} de {totalPages}</div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => goToPage(page - 1)}

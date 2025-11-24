@@ -178,7 +178,7 @@ export default function CascadingLocationSelect({
 
       {/* Select Sede */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-black mb-1">
           Sede {required && <span className="text-red-500">*</span>}
         </label>
         <select
@@ -199,7 +199,7 @@ export default function CascadingLocationSelect({
 
       {/* Select Dependencia */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-black mb-1">
           Dependencia {required && <span className="text-red-500">*</span>}
         </label>
         <select
@@ -223,7 +223,7 @@ export default function CascadingLocationSelect({
       {/* Select Subdependencia */}
       {showSubdependencia && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-black mb-1">
             Subdependencia (Opcional)
           </label>
           <select

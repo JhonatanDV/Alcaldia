@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 // Import Sidebar directly (it's a client component)
-import Sidebar from '@/components/Sidebar';
-import SidebarToggle from '@/components/SidebarToggle';
+// Sidebar and its toggle are provided by the pages that use the client Layout
+// to avoid rendering the sidebar twice (app/root + page-level Layout).
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -33,10 +33,6 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
             <div className="flex min-h-screen">
-              {/* Sidebar is a client component; it handles its own mobile toggle */}
-              <Sidebar />
-              {/* Global toggle button (client) to open/close sidebar on small screens */}
-              <SidebarToggle />
               <main className="flex-1 w-full overflow-x-hidden pt-16 sm:pt-0">{children}</main>
             </div>
       </body>
