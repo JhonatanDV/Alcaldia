@@ -24,3 +24,18 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Placeholder color for inputs and textareas (improves contrast on light/dark) */
+input::placeholder,
+textarea::placeholder,
+select::placeholder {
+  color: rgba(23, 23, 23, 0.45);
+}
+
+@media (prefers-color-scheme: dark) {
+  input::placeholder,
+  textarea::placeholder,
+  select::placeholder {
+    color: rgba(237, 237, 237, 0.55);
+  }
+}

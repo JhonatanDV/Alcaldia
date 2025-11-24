@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
@@ -10,7 +10,7 @@ type Marker = {
   page: number;
 };
 
-export default function TemplateDesigner({ templateId, onClose, sampleData }: { templateId: number; onClose: () => void; sampleData?: any }) {
+export default function TemplateDesigner({ templateId, onClose, sampleData }: { templateId: string | number; onClose: () => void; sampleData?: any }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -32,7 +32,8 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
       setError(null);
       try {
         const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/templates/${templateId}/`, {
+        const id = encodeURIComponent(String(templateId));
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/templates/${id}/`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
         if (!res.ok) throw new Error('No se pudo obtener la plantilla');
@@ -280,7 +281,8 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
       markers.forEach((m) => {
         schemaObj[m.key] = { page: m.page, x_pct: m.x_pct, y_pct: m.y_pct };
       });
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/templates/${templateId}/update/`, {
+      const id = encodeURIComponent(String(templateId));
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/templates/${id}/update/`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -348,8 +350,8 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
         {loading && <div>Cargando plantilla...</div>}
         {error && <div className="text-red-600">{error}</div>}
 
-        <div className="flex gap-4">
-          <div ref={containerRef} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} className="relative border flex-1" onClick={handleCanvasClick}>
+        <div className="flex flex-col md:flex-row gap-4">
+          <div ref={containerRef} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} className="relative border flex-1 min-h-[200px]" onClick={handleCanvasClick}>
             <canvas ref={canvasRef} style={{ display: pdfUrl ? 'block' : 'none', maxWidth: '100%', height: 'auto' }} />
 
             {/* Overlay markers */}
@@ -373,7 +375,7 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
           </div>
 
           {/* Side panel: editable list of markers */}
-          <aside className="w-64 border-l pl-3">
+          <aside className="w-full md:w-64 border-l md:pl-3 pt-4 md:pt-0">
             <h3 className="font-medium mb-2">Vista previa</h3>
             <div className="mb-2">
               <label className="text-xs text-gray-600">Datos de ejemplo (JSON)</label>

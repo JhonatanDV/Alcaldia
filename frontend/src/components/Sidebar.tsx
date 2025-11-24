@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 type Role = 'admin' | 'technician' | 'guest';
 
@@ -33,6 +33,20 @@ export default function Sidebar({ userRole: propUserRole, onLogout }: { userRole
       setUsername(localStorage.getItem('username') || 'Usuario');
     }
   }, [propUserRole]);
+
+  // Listen for a global custom event to toggle the sidebar (useful when
+  // the layout wants to expose a toggle button outside the component)
+  useEffect(() => {
+    const handler = () => setMobileOpen((s) => !s);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('sidebar:toggle', handler as EventListener);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('sidebar:toggle', handler as EventListener);
+      }
+    };
+  }, []);
 
   const isActive = (href?: string) => {
     if (!href) return false;
@@ -97,6 +111,7 @@ export default function Sidebar({ userRole: propUserRole, onLogout }: { userRole
     { name: 'Reportes', href: '/reports', roles: ['admin', 'technician'], icon: (
       <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3h18v18H3V3zM7 7h10M7 11h10M7 15h6"/></svg>
     ), submenu: [
+      { name: 'Crear Reporte', href: '/reports/create', roles: ['admin', 'technician'] },
       { name: 'Plantillas', href: '/reports/templates', roles: ['admin', 'technician'] },
       { name: 'Generados', href: '/reports/list', roles: ['admin', 'technician'] },
     ] },
@@ -123,12 +138,15 @@ export default function Sidebar({ userRole: propUserRole, onLogout }: { userRole
 
   return (
     <>
-      {/* Mobile toggle */}
-      <button onClick={() => setMobileOpen((s) => !s)} className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-blue-900 text-white">
-        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16"/></svg>
-      </button>
+      {/* Overlay - closes sidebar when clicked */}
+      {mobileOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 transition-opacity"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
 
-      <aside className={`fixed top-0 left-0 z-40 h-screen w-64 bg-gradient-to-b from-blue-900 to-blue-800 text-white shadow-lg transform ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-transform duration-200`}>
+      <aside className={`fixed top-0 left-0 z-40 h-screen w-64 bg-gradient-to-b from-blue-900 to-blue-800 text-white shadow-lg transform ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out`}>
         <div className="p-4 border-b border-blue-800">
           <h1 className="text-lg font-bold">Sistema</h1>
           <div className="text-sm text-blue-200 mt-1">{username}</div>
@@ -149,13 +167,13 @@ export default function Sidebar({ userRole: propUserRole, onLogout }: { userRole
                   {openSubmenu === item.name && (
                     <div className="pl-4 mt-1 space-y-1">
                       {item.submenu!.filter(si => !si.roles || si.roles.includes(userRole)).map((si) => (
-                        <Link key={si.href} href={si.href} className={`block px-3 py-2 rounded hover:bg-blue-800 ${isActive(si.href) ? 'bg-blue-600' : ''}`}>{si.name}</Link>
+                        <Link key={si.href} href={si.href} onClick={() => setMobileOpen(false)} className={`block px-3 py-2 rounded hover:bg-blue-800 ${isActive(si.href) ? 'bg-blue-600' : ''}`}>{si.name}</Link>
                       ))}
                     </div>
                   )}
                 </div>
               ) : (
-                <Link href={item.href || '#'} className={`block px-3 py-2 rounded hover:bg-blue-800 ${isActive(item.href) ? 'bg-blue-700' : ''}`}>
+                <Link href={item.href || '#'} onClick={() => setMobileOpen(false)} className={`block px-3 py-2 rounded hover:bg-blue-800 ${isActive(item.href) ? 'bg-blue-700' : ''}`}>
                   <div className="flex items-center">
                     {item.icon}
                     <span>{item.name}</span>

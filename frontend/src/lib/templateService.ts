@@ -57,8 +57,9 @@ export class TemplateService {
     document.body.removeChild(a);
   }
 
-  async generateFromTemplate(templateId: number, data: any): Promise<Blob> {
-    const response = await fetch(`${this.baseUrl}/api/templates/${templateId}/generate/`, {
+  async generateFromTemplate(templateId: string | number, data: any): Promise<Blob> {
+    const id = encodeURIComponent(String(templateId));
+    const response = await fetch(`${this.baseUrl}/api/templates/${id}/generate/`, {
       method: 'POST',
       headers: this.authHeaders(),
       body: JSON.stringify({ data }),
@@ -71,9 +72,9 @@ export class TemplateService {
     return await response.blob();
   }
 
-  async generateFromMaintenance(templateId: number, maintenanceId: number): Promise<Blob> {
+  async generateFromMaintenance(templateId: string | number, maintenanceId: number): Promise<Blob> {
     // convenience endpoint that your backend can implement: /api/templates/{id}/generate/?maintenance_id=
-    const url = new URL(`${this.baseUrl}/api/templates/${templateId}/generate/`);
+    const url = new URL(`${this.baseUrl}/api/templates/${encodeURIComponent(String(templateId))}/generate/`);
     url.searchParams.set('maintenance_id', String(maintenanceId));
 
     const response = await fetch(url.toString(), {

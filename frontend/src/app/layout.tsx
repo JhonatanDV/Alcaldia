@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+// Import Sidebar directly (it's a client component)
+import Sidebar from '@/components/Sidebar';
+import SidebarToggle from '@/components/SidebarToggle';
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import ClientOnly from '@/components/ClientOnly';
-import Sidebar from '@/components/Sidebar';
+
+// Sidebar is a client component (uses "use client"); import directly.
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,14 +32,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-            <div className="flex">
-              {/* Sidebar */}
-              <ClientOnly>
-                <div className="hidden md:block">
-                  <Sidebar />
-                </div>
-              </ClientOnly>
-              <main className="flex-1">{children}</main>
+            <div className="flex min-h-screen">
+              {/* Sidebar is a client component; it handles its own mobile toggle */}
+              <Sidebar />
+              {/* Global toggle button (client) to open/close sidebar on small screens */}
+              <SidebarToggle />
+              <main className="flex-1 w-full overflow-x-hidden pt-16 sm:pt-0">{children}</main>
             </div>
       </body>
     </html>

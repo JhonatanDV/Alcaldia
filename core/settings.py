@@ -12,9 +12,14 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
+import os
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env at project root (if present)
+load_dotenv(str(BASE_DIR / '.env'))
 
 
 # Quick-start development settings - unsuitable for production
@@ -26,7 +31,7 @@ SECRET_KEY = 'django-insecure-agm#5w!o1o0#(htlsunp!6@iiql47*ao!p!be%eu@wvcl%kl01
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1', '192.168.20.149', '10.170.1.103']
+ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1', '192.168.20.149', '10.170.1.103', '192.168.1.103']
 
 
 # Application definition
@@ -82,19 +87,19 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'alcaldia_db',
-        'USER': 'root',
-        'PASSWORD': 'root',
-        'HOST': 'localhost',
-        'PORT': '3306',
+        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.mysql'),
+        'NAME': os.getenv('DB_NAME', 'alcaldia_db'),
+        'USER': os.getenv('DB_USER', 'root'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'root'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '3306'),
         'OPTIONS': {
-            'init_command': "SET default_storage_engine=INNODB; SET sql_mode='STRICT_TRANS_TABLES'",
-            'charset': 'utf8mb4',
+            'init_command': os.getenv('DB_INIT_COMMAND', "SET default_storage_engine=INNODB; SET sql_mode='STRICT_TRANS_TABLES'"),
+            'charset': os.getenv('DB_CHARSET', 'utf8mb4'),
         },
         'TEST': {
-            'CHARSET': 'utf8mb4',
-            'COLLATION': 'utf8mb4_unicode_ci',
+            'CHARSET': os.getenv('DB_TEST_CHARSET', 'utf8mb4'),
+            'COLLATION': os.getenv('DB_TEST_COLLATION', 'utf8mb4_unicode_ci'),
         }
     }
 }
@@ -202,6 +207,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  # Si usas Vite
     "http://127.0.0.1:5173",
     "http://192.168.20.74:3000",  # Agregar esta línea
+    "http://192.168.1.103:3000",  # Tu IP actual
 ]
 
 CORS_ALLOW_CREDENTIALS = True

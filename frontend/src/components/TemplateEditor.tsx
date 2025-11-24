@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import { TemplateService } from '@/lib/templateService';
 import dynamic from 'next/dynamic';
+import { useState } from 'react';
 
 const TemplateDesigner = dynamic(() => import('./TemplateDesigner'), { ssr: false });
 
@@ -17,7 +17,8 @@ export default function TemplateEditor() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [editingTemplateId, setEditingTemplateId] = useState<number | null>(null);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | number | null>(null);
+  const [availableTemplates, setAvailableTemplates] = useState<Array<{ id: string | number; name: string }> | null>(null);
 
   const service = new TemplateService();
 
@@ -96,6 +97,8 @@ export default function TemplateEditor() {
       setSuccess('Plantilla creada: ' + data.name);
       // abrir diseñador para posicionar campos en PDF inmediatamente
       if (data.id) setEditingTemplateId(data.id);
+      // some backends may return a slug/name; accept it too
+      if (data.name && !data.id) setEditingTemplateId(data.name);
       setTemplateName('');
       setFile(null);
       setFieldsSchema('');
@@ -108,10 +111,45 @@ export default function TemplateEditor() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">Editor de Plantillas (básico)</h1>
+    <div className="w-full max-w-7xl mx-auto p-3 sm:p-6">
+      <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Editor de Plantillas (básico)</h1>
 
-      <div className="bg-white shadow rounded p-6 template-editor-form">
+      {/* Current template in editing (if any) */}
+      {editingTemplateId && (
+        <div className="mb-4 text-xs sm:text-sm text-gray-600">Plantilla activa para edición: <strong>{String(editingTemplateId)}</strong></div>
+      )}
+
+      {/* Fetch and list available templates */}
+      <div className="mb-4">
+        <button
+          onClick={async () => {
+            try {
+              const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+              const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/templates/`, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
+              if (!res.ok) throw new Error('No se pudieron cargar plantillas');
+              const list = await res.json();
+              // normalize to id/name
+              const normalized = (list || []).map((t: any) => ({ id: t.slug ?? t.id ?? t.name, name: t.name ?? String(t.id) }));
+              setAvailableTemplates(normalized);
+            } catch (e) {
+              console.error(e);
+            }
+          }}
+          className="px-3 py-2 bg-gray-200 rounded text-sm sm:text-base w-full sm:w-auto"
+        >Cargar plantillas disponibles</button>
+
+        {availableTemplates && (
+          <div className="mt-2">
+            <label className="block text-xs sm:text-sm text-gray-600">Seleccionar plantilla para edición</label>
+            <select className="mt-1 w-full sm:w-auto border rounded px-2 py-1 text-black" value={String(editingTemplateId ?? '')} onChange={(e) => setEditingTemplateId(e.target.value || null)}>
+              <option value="">(ninguna)</option>
+              {availableTemplates.map((t) => (<option key={String(t.id)} value={String(t.id)}>{t.name} ({String(t.id)})</option>))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white shadow rounded p-3 sm:p-6 template-editor-form">
         <label className="block text-sm font-medium mb-2 text-gray-700">Nombre de la plantilla <span className="text-red-600">*</span></label>
         <input
           type="text"
@@ -198,10 +236,10 @@ export default function TemplateEditor() {
         {error && <div className="text-red-600 mt-2">{error}</div>}
         {success && <div className="text-green-600 mt-2">{success}</div>}
 
-        <div className="mt-4 flex gap-3">
-          <button onClick={handleGeneratePDF} disabled={loading} className="px-4 py-2 bg-red-600 text-white rounded">{loading ? 'Generando...' : 'Generar PDF'}</button>
-          <button onClick={handleGenerateExcel} disabled={loading} className="px-4 py-2 bg-green-600 text-white rounded">{loading ? 'Generando...' : 'Generar Excel'}</button>
-            <button onClick={handleUploadTemplate} disabled={loading || !templateName.trim()} className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50" aria-disabled={!templateName.trim()}>{loading ? 'Subiendo...' : 'Subir Plantilla'}</button>
+        <div className="mt-4 flex flex-col sm:flex-row gap-3">
+          <button onClick={handleGeneratePDF} disabled={loading} className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded">{loading ? 'Generando...' : 'Generar PDF'}</button>
+          <button onClick={handleGenerateExcel} disabled={loading} className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded">{loading ? 'Generando...' : 'Generar Excel'}</button>
+            <button onClick={handleUploadTemplate} disabled={loading || !templateName.trim()} className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50" aria-disabled={!templateName.trim()}>{loading ? 'Subiendo...' : 'Subir Plantilla'}</button>
         </div>
       </div>
       {editingTemplateId && (

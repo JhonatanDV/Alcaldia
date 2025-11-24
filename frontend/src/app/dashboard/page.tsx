@@ -1,12 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import axios from 'axios';
-import Layout from '../../components/Layout';
+import { useEffect, useState } from 'react';
 import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+    Bar,
+    BarChart,
+    CartesianGrid,
+    Legend,
+    Line,
+    LineChart,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis, YAxis
 } from 'recharts';
+import Layout from '../../components/Layout';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -54,6 +61,8 @@ export default function DashboardPage() {
   // Search filters state
   const [searchFilters, setSearchFilters] = useState<any>({});
   const [filteredStats, setFilteredStats] = useState<DashboardStats | null>(null);
+  const [dependenciasOptions, setDependenciasOptions] = useState<string[]>([]);
+  const [sedesOptions, setSedesOptions] = useState<string[]>([]);
 
   const fetchDashboardData = async () => {
     const token = localStorage.getItem('access_token');
@@ -127,6 +136,20 @@ export default function DashboardPage() {
       setStats(combinedStats);
       setFilteredStats(combinedStats); // Initialize filtered stats
       setEquipmentStats(combinedEquipmentStats);
+
+      // populate filter dropdown options from returned data
+      const deps = new Set<string>();
+      const sds = new Set<string>();
+      (recentActivityResponse.data.recent_maintenances || []).forEach((m: any) => {
+        // Extract dependencia from various possible field names
+        const dep = m.dependencia_name || m.equipment__dependencia__name || m.equipment_dependencia || m.dependencia;
+        if (dep) deps.add(dep);
+        // Extract sede from various possible field names
+        const sede = m.sede_name || m.equipment__sede__name || m.equipment_sede || m.sede;
+        if (sede) sds.add(sede);
+      });
+      setDependenciasOptions(Array.from(deps).sort());
+      setSedesOptions(Array.from(sds).sort());
       setLoading(false);
     } catch (err: any) {
       console.error('Error fetching dashboard:', err);
@@ -233,25 +256,27 @@ export default function DashboardPage() {
             </div>
             <div>
               <label htmlFor="dashboard-dependencia" className="block text-sm font-medium text-gray-700">Dependencia</label>
-              <input
-                type="text"
+              <select
                 id="dashboard-dependencia"
                 value={searchFilters.equipment_dependencia || ''}
                 onChange={(e) => setSearchFilters((prev: any) => ({ ...prev, equipment_dependencia: e.target.value }))}
-                placeholder="Filtrar por dependencia"
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
-              />
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black bg-white"
+              >
+                <option value="">(Todas)</option>
+                {dependenciasOptions.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
             </div>
             <div>
               <label htmlFor="dashboard-sede" className="block text-sm font-medium text-gray-700">Sede</label>
-              <input
-                type="text"
+              <select
                 id="dashboard-sede"
                 value={searchFilters.sede || ''}
                 onChange={(e) => setSearchFilters((prev: any) => ({ ...prev, sede: e.target.value }))}
-                placeholder="Filtrar por sede"
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
-              />
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black bg-white"
+              >
+                <option value="">(Todas)</option>
+                {sedesOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
             <div className="flex items-end">
               <button
