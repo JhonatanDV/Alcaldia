@@ -147,15 +147,113 @@ class ReportGenerateView(APIView):
 
             # Serializar datos y generar según formato solicitado (por defecto pdf)
             data = serialize_maintenance(maintenance_id)
+            # If client provided a specific Template (id or name), prefer using
+            # that HTML/CSS template and its fields_schema mapping to render
+            # the PDF. This allows the frontend to select a template for output.
+            tpl_id = request.data.get('template_id') or request.data.get('template') or request.data.get('template_name')
+            template_obj = None
+            if tpl_id:
+                try:
+                    from .models import Template
+                    if str(tpl_id).isdigit():
+                        template_obj = Template.objects.filter(id=int(tpl_id)).first()
+                    else:
+                        template_obj = Template.objects.filter(name=tpl_id).first()
+                except Exception:
+                    template_obj = None
+
+            def _resolve_path(obj, path):
+                try:
+                    cur = obj
+                    if path is None or path == '':
+                        return None
+                    import re
+                    tokens = []
+                    parts = str(path).split('.')
+                    for part in parts:
+                        bracket_parts = re.split(r'\[|\]', part)
+                        for bp in bracket_parts:
+                            if bp == '':
+                                continue
+                            tokens.append(bp)
+                    for tok in tokens:
+                        if isinstance(cur, list):
+                            try:
+                                idx = int(tok)
+                                cur = cur[idx]
+                                continue
+                            except Exception:
+                                return None
+                        if isinstance(cur, dict):
+                            if tok in cur:
+                                cur = cur[tok]
+                                continue
+                            try:
+                                cur = cur[int(tok)]
+                                continue
+                            except Exception:
+                                return None
+                        return None
+                    return cur
+                except Exception:
+                    return None
             format_type = request.data.get('format', 'pdf')
 
             if format_type == 'pdf':
-                # Try to include configured logo if available
-                logo_path = getattr(settings, 'REPORT_LOGO_PATH', None)
-                primary_color = getattr(settings, 'REPORT_PRIMARY_COLOR', None)
-                buffer = PDFGenerator().generate(data, logo_path=logo_path, primary_color=primary_color)
-                content_type = 'application/pdf'
-                ext = 'pdf'
+                # If a Template was selected, render using its HTML/CSS and
+                # mapping (fields_schema) so generated PDF reflects the
+                # configured template. Otherwise fall back to generic PDFGenerator.
+                if template_obj is not None and getattr(template_obj, 'type', '') == 'pdf':
+                    # Build mapped context from template fields_schema
+                    mapped_context = {}
+                    fs = getattr(template_obj, 'fields_schema', None)
+                    if fs and isinstance(fs, dict):
+                        for tpl_key, meta in fs.items():
+                            map_to = meta.get('map_to') if isinstance(meta, dict) else (meta or tpl_key)
+                            val = _resolve_path(data, map_to) if map_to else None
+                            if val is None and isinstance(data, dict):
+                                val = data.get(map_to)
+                            mapped_context[tpl_key] = val
+
+                    render_context = {**(data or {}), **(mapped_context or {})}
+
+                    # Prefer HTMLPDFGenerator (WeasyPrint) then ReportLab fallback
+                    try:
+                        from .services.html_pdf_generator import HTMLPDFGenerator
+                    except Exception:
+                        HTMLPDFGenerator = None
+                    try:
+                        from .services.reportlab_pdf_generator import ReportLabPDFGenerator
+                    except Exception:
+                        ReportLabPDFGenerator = None
+
+                    background_bytes = None
+                    try:
+                        if template_obj.template_file:
+                            template_obj.template_file.open('rb')
+                            background_bytes = template_obj.template_file.read()
+                            template_obj.template_file.close()
+                    except Exception:
+                        background_bytes = None
+
+                    if HTMLPDFGenerator:
+                        buffer = HTMLPDFGenerator.render_template(template_obj.html_content or '', template_obj.css_content or '', render_context)
+                    elif ReportLabPDFGenerator:
+                        buffer = ReportLabPDFGenerator.render_template(template_obj.html_content or '', template_obj.css_content or '', render_context, background_bytes=background_bytes)
+                    else:
+                        # fallback to generic
+                        logo_path = getattr(settings, 'REPORT_LOGO_PATH', None)
+                        primary_color = getattr(settings, 'REPORT_PRIMARY_COLOR', None)
+                        buffer = PDFGenerator().generate(data, logo_path=logo_path, primary_color=primary_color)
+                    content_type = 'application/pdf'
+                    ext = 'pdf'
+                else:
+                    # Try to include configured logo if available
+                    logo_path = getattr(settings, 'REPORT_LOGO_PATH', None)
+                    primary_color = getattr(settings, 'REPORT_PRIMARY_COLOR', None)
+                    buffer = PDFGenerator().generate(data, logo_path=logo_path, primary_color=primary_color)
+                    content_type = 'application/pdf'
+                    ext = 'pdf'
             elif format_type == 'excel':
                 buffer = ExcelGenerator().generate(data)
                 content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'

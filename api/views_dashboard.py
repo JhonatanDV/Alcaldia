@@ -55,10 +55,14 @@ class DashboardStatsView(APIView):
         Retorna estadísticas generales del sistema
         """
         # Debug: Log authentication info
-        print(f"=== DASHBOARD STATS VIEW DEBUG ===")
+        print("=== DASHBOARD STATS VIEW DEBUG ===")
         print(f"User authenticated: {request.user.is_authenticated}")
         print(f"User: {request.user}")
-        print(f"Auth header: {request.headers.get('Authorization', 'NOT PRESENT')[:50]}...")
+        auth_header = request.headers.get('Authorization')
+        auth_preview = (auth_header[:50] + '...') if auth_header else 'NOT PRESENT'
+        print(f"Auth header: {auth_preview}")
+        origin = request.headers.get('Origin') or request.headers.get('origin')
+        print(f"Origin header: {origin}")
         
         # Estadísticas generales
         filters = self._build_filters(request)

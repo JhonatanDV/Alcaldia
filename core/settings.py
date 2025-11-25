@@ -33,7 +33,14 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-agm#5w!o1o0#(htlsun
 # DEBUG should be False in production. Accept several truthy values from env.
 DEBUG = str(os.getenv('DJANGO_DEBUG', 'False')).lower() in ('1', 'true', 'yes')
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
+_raw_allowed = os.getenv('ALLOWED_HOSTS', '').strip()
+if _raw_allowed:
+    ALLOWED_HOSTS = [h.strip() for h in _raw_allowed.split(',') if h.strip()]
+else:
+    # When developing locally, allow common localhost names so tools and
+    # reload servers don't trigger DisallowedHost. In production the
+    # environment should set ALLOWED_HOSTS explicitly.
+    ALLOWED_HOSTS = ['127.0.0.1', 'localhost'] if str(os.getenv('DJANGO_DEBUG', 'False')).lower() in ('1', 'true', 'yes') else []
 
 
 # Application definition
@@ -54,6 +61,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'api.middleware.EarlyRequestLoggerMiddleware',  # temporal - depuración
+    'api.middleware.SkipCSRFMiddleware',
     'corsheaders.middleware.CorsMiddleware',  # Debe ir antes de CommonMiddleware
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -206,6 +215,7 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    # Development frontend changed to port 3001
     "http://localhost:3001",
     "http://127.0.0.1:3001",
     "http://localhost:5173",  # Si usas Vite
@@ -219,6 +229,7 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [
     'DELETE',
     'GET',
+    'HEAD',
     'OPTIONS',
     'PATCH',
     'POST',
@@ -242,14 +253,16 @@ CORS_ALLOW_HEADERS = [
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    # Desarrollo: frontend en puerto 3001
     "http://localhost:3001",
     "http://127.0.0.1:3001",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
 # Configure CSRF trusted origins when running with DEBUG=False
-CSRF_TRUSTED_ORIGINS = []
+# If running in production (DEBUG=False) add https:// entries for values
+# found in ALLOWED_HOSTS, but keep the local development entries above.
 if not DEBUG:
-    # ALLOWED_HOSTS is read from env and may contain comma-separated values
-    # Build https:// entries for trusted origins (Certbot/HTTPS expected)
-    CSRF_TRUSTED_ORIGINS = [f"https://{h.strip()}" for h in ALLOWED_HOSTS if h.strip()]
+    https_origins = [f"https://{h.strip()}" for h in ALLOWED_HOSTS if h.strip()]
+    # Merge while preserving order and avoiding duplicates
+    CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(CSRF_TRUSTED_ORIGINS + https_origins))

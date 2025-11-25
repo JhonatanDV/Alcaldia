@@ -67,15 +67,17 @@ urlpatterns = [
     path('api/user-management/', include('api.urls_user_management')),
     path('api/pdf-package/', include('api.urls_pdf_package')),
     path('api/config/', include('api.urls_config')),  # Nuevas rutas para configuración
+    # Alias más expresivo para las rutas de configuración relacionadas con ubicaciones
+    path('api/ubicaciones/', include('api.urls_config')),
     path('api/backups/', include('api.urls_backup')),  # Rutas para backup/restore
 ]
 
 # Serve media files during development
 if settings.DEBUG:
-    # Intercept media/template requests and try a normalized-filename fallback
+    # Intercept only media template requests and try a normalized-filename fallback
     from api.views_files import media_template_fallback
     urlpatterns += [
-        path('media/<path:subpath>', media_template_fallback),
+        path('media/templates/<path:subpath>', media_template_fallback),
     ]
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
