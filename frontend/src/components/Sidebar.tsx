@@ -128,10 +128,7 @@ export default function Sidebar({ userRole: propUserRole, onLogout }: { userRole
   { name: 'Plantillas', href: '/reports/templates', roles: ['admin', 'technician'] },
       { name: 'Generados', href: '/reports/list', roles: ['admin', 'technician'] },
     ] },
-    // Plantillas como item principal para acceso directo
-  { name: 'Plantillas', href: '/reports/templates', roles: ['admin', 'technician'], icon: (
-      <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7h18v14H3zM3 3h18v2H3z"/></svg>
-    ) },
+    
     { name: 'Ubicaciones', href: '/admin/locations', roles: ['admin'], icon: (
       <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z"/></svg>
     ), submenu: [
