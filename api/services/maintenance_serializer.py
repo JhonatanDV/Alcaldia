@@ -36,7 +36,7 @@ def serialize_maintenance(maintenance_id: int) -> dict:
     data = {
         'codigo': _format_field_for_template(m.codigo or str(m.id)),
         'description': _format_field_for_template(m.description),
-        'maintenance_type': _format_field_for_template(m.get_maintenance_type_display() if m.maintenance_type else None),
+        'maintenance_type': _format_field_for_template(m.maintenance_type),
         'status': _format_field_for_template(m.get_status_display() if m.status else None),
         'scheduled_date': m.scheduled_date.strftime('%d/%m/%Y') if m.scheduled_date else _format_field_for_template(None),
         'completion_date': m.completion_date.strftime('%d/%m/%Y') if m.completion_date else 'Pendiente',
