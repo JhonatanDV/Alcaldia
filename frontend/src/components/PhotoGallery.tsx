@@ -66,7 +66,7 @@ export default function PhotoGallery({ token, userRole }: PhotoGalleryProps) {
       
       // Fetch all equipments handling pagination
       let allEquipments: any[] = [];
-      let nextUrl: string | null = "http://127.0.0.1:8000/api/equipments/?page_size=1000";
+      let nextUrl: string | null = `${process.env.NEXT_PUBLIC_API_URL}/api/equipments/?page_size=1000`;
       
       while (nextUrl) {
         const response: any = await axios.get(nextUrl, { headers });

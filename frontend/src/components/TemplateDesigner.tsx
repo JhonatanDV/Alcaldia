@@ -83,7 +83,7 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
       try {
         const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
         const id = encodeURIComponent(String(templateId));
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/templates/${id}/`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/templates/${id}/`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
         if (!res.ok) throw new Error('No se pudo obtener la plantilla');
@@ -569,7 +569,7 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
         schemaObj[m.key] = { page: m.page, x_pct: m.x_pct, y_pct: m.y_pct, map_to: localKeys[m.key] ?? m.key };
       });
       const id = encodeURIComponent(String(templateId));
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/templates/${id}/update/`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/templates/${id}/update/`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
