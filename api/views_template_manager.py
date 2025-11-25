@@ -1,4 +1,5 @@
 from rest_framework.decorators import api_view, parser_classes, permission_classes
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
