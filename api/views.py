@@ -255,7 +255,34 @@ class ReportGenerateView(APIView):
                     content_type = 'application/pdf'
                     ext = 'pdf'
             elif format_type == 'excel':
-                buffer = ExcelGenerator().generate(data)
+                # Seleccionar generador según tipo de equipo
+                from io import BytesIO
+                
+                equipment_type = maintenance.equipment.equipment_type if hasattr(maintenance.equipment, 'equipment_type') else ''
+                
+                # Determinar qué plantilla usar
+                if equipment_type in ['printer', 'scanner', 'impresora', 'escaner']:
+                    # Usar generador de impresoras/escáneres
+                    try:
+                        from .services.printer_scanner_excel_generator import PrinterScannerExcelGenerator
+                        excel_bytes = PrinterScannerExcelGenerator().generate_report(maintenance)
+                        buffer = BytesIO(excel_bytes)
+                    except Exception as e:
+                        print(f"Error usando PrinterScannerExcelGenerator: {e}")
+                        buffer = ExcelGenerator().generate(data)
+                elif equipment_type in ['computer', 'computador', 'pc']:
+                    # Usar generador de equipos de cómputo
+                    try:
+                        from .services.excel_report_generator import ExcelReportGenerator
+                        excel_bytes = ExcelReportGenerator().generate_report(maintenance)
+                        buffer = BytesIO(excel_bytes)
+                    except Exception as e:
+                        print(f"Error usando ExcelReportGenerator: {e}")
+                        buffer = ExcelGenerator().generate(data)
+                else:
+                    # Fallback genérico
+                    buffer = ExcelGenerator().generate(data)
+
                 content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 ext = 'xlsx'
             elif format_type == 'image':

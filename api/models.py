@@ -101,11 +101,9 @@ class Equipment(models.Model):
 
 
 class Maintenance(models.Model):
-    MAINTENANCE_TYPES = [
-        ('preventivo', 'Preventivo'),
-        ('correctivo', 'Correctivo'),
-        ('predictivo', 'Predictivo'),
-    ]
+    # Removed typed choices to avoid conflicts with template usage
+    # maintenance_type kept as a free-text field so template logic
+    # can rely on `equipment_type` to distinguish computer vs printer/scanner
 
     STATUS_CHOICES = [
         ('pending', 'Pendiente'),
@@ -115,7 +113,7 @@ class Maintenance(models.Model):
     ]
 
     equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, related_name='maintenances')
-    maintenance_type = models.CharField(max_length=20, choices=MAINTENANCE_TYPES)
+    maintenance_type = models.CharField(max_length=50, null=True, blank=True)
     scheduled_date = models.DateField()
     completion_date = models.DateField(null=True, blank=True)
     technician = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='maintenances')
@@ -168,7 +166,45 @@ class Maintenance(models.Model):
         ordering = ['-scheduled_date']
 
     def __str__(self):
-        return f"{self.equipment.name} - {self.get_maintenance_type_display()} - {self.scheduled_date}"
+        return f"{self.equipment.name} - {self.maintenance_type or ''} - {self.scheduled_date}"
+
+    def save(self, *args, **kwargs):
+        """
+        Ensure `elaborado_por` mirrors the `technician` name when technician is set.
+        Also keep backwards compatibility by not overwriting elaborado_por when no technician.
+        """
+        try:
+            if self.technician:
+                name = self.technician.get_full_name() or self.technician.username
+                # keep elaborado_por in sync
+                self.elaborado_por = name
+        except Exception:
+            pass
+        super().save(*args, **kwargs)
+
+    @property
+    def performed_by(self):
+        """Return the display name of the technician (used by templates)."""
+        if self.technician:
+            return self.technician.get_full_name() or self.technician.username
+        return self.elaborado_por or ''
+
+    @property
+    def signature(self):
+        """Return first Signature related to this maintenance or None."""
+        return self.signatures.first() if hasattr(self, 'signatures') else None
+
+    @property
+    def second_signature(self):
+        """Return first SecondSignature related to this maintenance or None."""
+        return self.second_signatures.first() if hasattr(self, 'second_signatures') else None
+
+    @property
+    def maintenance_date(self):
+        """Compatibility property: templates expect `maintenance_date`.
+        Prefer `completion_date` when available, otherwise `scheduled_date`.
+        """
+        return self.completion_date or self.scheduled_date
 
 
 class Photo(models.Model):
@@ -184,6 +220,11 @@ class Photo(models.Model):
 
     def __str__(self):
         return f"Photo for {self.maintenance} - {self.caption or 'No caption'}"
+
+    @property
+    def image(self):
+        """Compatibility property: templates expect `photo.image`."""
+        return self.photo
 
 
 class AuditLog(models.Model):
@@ -334,6 +375,11 @@ class Signature(models.Model):
     def __str__(self):
         return f"{self.signer_name} - {self.signer_role}"
 
+    @property
+    def image(self):
+        """Compatibility property: templates expect `signature.image`."""
+        return self.signature_image
+
 
 class SecondSignature(models.Model):
     maintenance = models.ForeignKey(Maintenance, on_delete=models.CASCADE, related_name='second_signatures', null=True, blank=True)
@@ -349,6 +395,11 @@ class SecondSignature(models.Model):
 
     def __str__(self):
         return f"{self.signer_name} - {self.signer_role} (Second)"
+
+    @property
+    def image(self):
+        """Compatibility property: templates expect `second_signature.image`."""
+        return self.signature_image
 
 
 class Incident(models.Model):

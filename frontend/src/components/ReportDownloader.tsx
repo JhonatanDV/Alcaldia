@@ -43,6 +43,7 @@ export default function ReportDownloader({ token, userRole }: ReportDownloaderPr
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedSection, setSelectedSection] = useState<string>("");
   const [selectedType, setSelectedType] = useState<string>("");
+  const [outputFormat, setOutputFormat] = useState<'pdf' | 'excel'>('excel');
   const [equipments, setEquipments] = useState<{id: number, code: string, name: string}[]>([]);
   const [sections, setSections] = useState<string[]>([]);
   const [generatingReport, setGeneratingReport] = useState(false);
@@ -257,12 +258,24 @@ export default function ReportDownloader({ token, userRole }: ReportDownloaderPr
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
+          <div>
+            <label htmlFor="format-select" className="block text-sm font-medium text-gray-700">Formato</label>
+            <select
+              id="format-select"
+              value={outputFormat}
+              onChange={(e) => setOutputFormat(e.target.value as 'pdf' | 'excel')}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="excel">Excel (.xlsx)</option>
+              <option value="pdf">PDF (.pdf)</option>
+            </select>
+          </div>
         </div>
         <button
 	onClick={(e) => {
 	  e.preventDefault();
 	  const maintenanceId = selectedEquipment ? Number(selectedEquipment) : undefined;
-	  void generateReport(maintenanceId);
+	  void generateReport(maintenanceId, outputFormat);
 	}}
          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
         >

@@ -397,6 +397,43 @@ def generate_report(request):
             mapped_context = {}
 
     render_context = {**(data or {}), **(mapped_context or {})}
+    # Allow clients to request Excel generation using the original .xlsx template
+    format_type = request.data.get('format') or request.query_params.get('format') or 'pdf'
+    if format_type == 'excel':
+        try:
+            # Prefer template-based generator that preserves the original Excel format
+            from .services.excel_report_generator import ExcelReportGenerator
+        except Exception:
+            ExcelReportGenerator = None
+
+        if ExcelReportGenerator is None:
+            return Response({'error': 'Generador Excel no disponible en el servidor'}, status=501)
+
+        try:
+            excel_bytes = ExcelReportGenerator().generate_report(maintenance)
+            # Save to default storage so it appears in reports list
+            from django.core.files.base import ContentFile
+            from django.core.files.storage import default_storage
+            filename = f"reports/rutina_mantenimiento_{maintenance.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            file_path = default_storage.save(filename, ContentFile(excel_bytes))
+
+            # Create Report record
+            try:
+                report = Report.objects.create(
+                    maintenance=maintenance,
+                    title=f"Rutina de Mantenimiento - {maintenance.equipment.name if maintenance.equipment else ''}",
+                    content=maintenance.description or '',
+                    pdf_file=file_path,
+                    generated_by=request.user
+                )
+            except Exception:
+                report = None
+
+            # Return URL to frontend
+            url = request.build_absolute_uri(default_storage.url(file_path)) if file_path else None
+            return Response({'pdf_file': url, 'message': 'Excel generado correctamente', 'report_id': getattr(report, 'id', None)})
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
 
     # Generate PDF
     if active.type == 'pdf':

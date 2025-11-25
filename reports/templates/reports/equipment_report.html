@@ -32,17 +32,17 @@
     {% for maintenance in maintenances %}
     <div class="header">
         <h1>
-            {% if maintenance.maintenance_type == 'computer' %}
+            {% if maintenance.equipment_type == 'computer' %}
                 RUTINA MANTENIMIENTO PREVENTIVO DE EQUIPOS DE CÓMPUTO
             {% else %}
                 RUTINA DE MANTENIMIENTO PREVENTIVO PARA IMPRESORAS Y ESCÁNER
             {% endif %}
         </h1>
         <p>ALCALDÍA DE PASTO – GESTIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN</p>
-        <p>Código: GTI-F-{% if maintenance.maintenance_type == 'computer' %}015{% else %}016{% endif %}  Versión: {% if maintenance.maintenance_type == 'computer' %}03{% else %}02{% endif %}  Vigencia: 18-Jul-19</p>
+        <p>Código: GTI-F-{% if maintenance.equipment_type == 'computer' %}015{% else %}016{% endif %}  Versión: {% if maintenance.equipment_type == 'computer' %}03{% else %}02{% endif %}  Vigencia: 18-Jul-19</p>
     </div>
 
-    {% if maintenance.maintenance_type == 'computer' %}
+    {% if maintenance.equipment_type == 'computer' %}
     <div class="info-grid">
         <div class="info-row">
             <div class="info-cell"><span class="info-label">Sede:</span> {{ maintenance.sede|default:"" }}</div>
@@ -86,7 +86,7 @@
         <p>{{ maintenance.description }}</p>
     </div>
     {% else %}
-    {% if maintenance.maintenance_type == 'computer' %}
+    {% if maintenance.equipment_type == 'computer' %}
     <h2>RUTINA DE HARDWARE</h2>
     <table class="activities-table">
         <tr>
@@ -184,7 +184,7 @@
 
     {% if not maintenance.is_incident %}
     <div class="signature-section">
-        {% if maintenance.maintenance_type == 'computer' %}
+        {% if maintenance.equipment_type == 'computer' %}
         <div class="signature-box">
             <h4>Responsable de Mantenimiento</h4>
             <p><strong>Firma:</strong></p>

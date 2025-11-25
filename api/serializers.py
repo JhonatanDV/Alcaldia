@@ -69,6 +69,7 @@ class SecondSignatureSerializer(serializers.ModelSerializer):
 
 class ReportSerializer(serializers.ModelSerializer):
     generado_por_nombre = serializers.SerializerMethodField()
+    file_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Report
@@ -78,6 +79,18 @@ class ReportSerializer(serializers.ModelSerializer):
         user = getattr(obj, 'generated_by', None) or getattr(obj, 'generado_por', None)
         if user:
             return f"{user.first_name} {user.last_name}".strip() or user.username
+        return None
+
+    def get_file_url(self, obj):
+        request = self.context.get('request')
+        if obj.pdf_file:
+            try:
+                url = obj.pdf_file.url
+                if request:
+                    return request.build_absolute_uri(url)
+                return url
+            except Exception:
+                return None
         return None
 
 

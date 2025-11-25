@@ -55,16 +55,10 @@ urlpatterns = [
     path('generate-pdf/', generate_pdf, name='generate-pdf'),
     path('reports/generate/', lazy_view('api.views_template_manager', 'generate_report'), name='generate_report'),
     path('reports/', lazy_view('api.views_template_manager', 'list_reports'), name='list_reports'),
-    path('templates/', lazy_view('api.views_template_manager', 'ListTemplatesView'), name='list_templates'),
-    path('templates/upload/', lazy_view('api.views_template_manager', 'upload_template'), name='upload_template'),
-    path('templates/sample-data/', lazy_view('api.views_template_manager', 'sample_template_data'), name='sample_template_data'),
+    # Template management endpoints removed: the system uses two built-in templates.
+    # Kept `templates/active/` for backwards compatibility when checking which
+    # ReportTemplate is active (if needed by the generator).
     path('templates/active/', lazy_view('api.views_template_manager', 'active_template'), name='active_template'),
-    # Accept either numeric id or textual key (name/slug). Backend will resolve.
-    path('templates/<str:template_key>/', lazy_view('api.views_template_manager', 'get_template'), name='get_template'),
-    path('templates/<str:template_key>/generate/', lazy_view('api.views_template_manager', 'generate_from_template'), name='generate_from_template'),
-    path('templates/<str:template_key>/update/', lazy_view('api.views_template_manager', 'update_template'), name='update_template'),
-    path('templates/<str:template_key>/delete/', lazy_view('api.views_template_manager', 'delete_template'), name='delete_template'),
-    path('templates/<str:template_key>/suggest-mappings/', lazy_view('api.views_template_manager', 'suggest_mappings'), name='suggest_mappings'),
     # Dashboard filter options
     path('dashboard/filter-options/', FilterOptionsView.as_view(), name='dashboard-filter-options'),
 ]
