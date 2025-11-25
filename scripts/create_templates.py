@@ -88,7 +88,6 @@ def create_templates():
         name='Plantilla PDF por Defecto',
         defaults={
             'description': 'Plantilla PDF generada con ReportLab para reportes de mantenimiento',
-            'type': 'pdf',
             'is_active': True,
         }
     )
