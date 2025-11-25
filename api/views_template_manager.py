@@ -2,9 +2,11 @@ from rest_framework.decorators import api_view, parser_classes, permission_class
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from django.http import HttpResponse
 from .models import Template
 from .models import ReportTemplate
+from .models import Report
 import json
 from datetime import datetime
 
@@ -66,9 +68,105 @@ def upload_template(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def list_templates(request):
-    templates = Template.objects.all().values('id', 'name', 'type', 'description', 'created_at')
-    return Response(list(templates))
+def list_reports(request):
+    reports = Report.objects.all().select_related('maintenance', 'generated_by').values(
+        'id', 'title', 'pdf_file', 'generated_at',
+        'maintenance__id', 'maintenance__maintenance_type',
+        'generated_by__username'
+    )
+    return Response(list(reports))
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def generate_report(request):
+    """Generate a report using the active template and save it to the database."""
+    maintenance_id = request.data.get('maintenance_id')
+    if not maintenance_id:
+        return Response({'error': 'maintenance_id is required'}, status=400)
+
+    try:
+        from .models import Maintenance
+        maintenance = Maintenance.objects.get(id=int(maintenance_id))
+    except Maintenance.DoesNotExist:
+        return Response({'error': 'Maintenance not found'}, status=404)
+
+    # Get active template
+    active = ReportTemplate.objects.filter(is_active=True).order_by('-updated_at').first()
+    if not active:
+        return Response({'error': 'No active template found'}, status=404)
+
+    # Get data for the maintenance
+    try:
+        from .services.maintenance_serializer import serialize_maintenance
+        data = serialize_maintenance(maintenance.id)
+    except Exception:
+        return Response({'error': 'Error serializing maintenance data'}, status=500)
+
+    # Generate PDF
+    if active.type == 'pdf':
+        overlays = None
+        try:
+            overlays_field = request.data.get('_overlays') or request.data.get('overlays')
+            if overlays_field:
+                if isinstance(overlays_field, str):
+                    import json as _json
+                    overlays = _json.loads(overlays_field)
+                else:
+                    overlays = overlays_field
+        except Exception:
+            overlays = None
+
+        background_bytes = None
+        try:
+            if active.template_file:
+                active.template_file.open('rb')
+                background_bytes = active.template_file.read()
+                active.template_file.close()
+        except Exception:
+            background_bytes = None
+
+        if HTMLPDFGenerator:
+            pdf_file = HTMLPDFGenerator.render_template(active.html_content, active.css_content, data)
+        elif ReportLabPDFGenerator:
+            pdf_file = ReportLabPDFGenerator.render_template(
+                active.html_content,
+                active.css_content,
+                data,
+                background_bytes=background_bytes,
+                overlays=overlays
+            )
+        else:
+            return Response({'error': 'PDF generation not available'}, status=501)
+
+        # Save the PDF to storage
+        from django.core.files.base import ContentFile
+        from django.core.files.storage import default_storage
+        filename = f"reports/{active.name}_{maintenance.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        file_path = default_storage.save(filename, ContentFile(pdf_file.read()))
+
+        # Create Report instance
+        report = Report.objects.create(
+            maintenance=maintenance,
+            title=f"Reporte de {maintenance.maintenance_type} - {maintenance.equipment.name if maintenance.equipment else 'Sin equipo'}",
+            content='',  # Could add summary
+            pdf_file=file_path,
+            generated_by=request.user
+        )
+
+        # Return the URL
+        pdf_url = request.build_absolute_uri(default_storage.url(file_path))
+        return Response({'pdf_file': pdf_url, 'message': 'Reporte generado exitosamente'})
+    else:
+        return Response({'error': 'Active template is not PDF type'}, status=400)
+
+
+class ListTemplatesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        templates = Template.objects.all().values('id', 'name', 'type', 'description')
+        return Response(list(templates))
 
 
 @api_view(['GET'])
@@ -113,7 +211,13 @@ def get_template(request, template_key):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def generate_from_template(request, template_key):
+    import logging
+    logger = logging.getLogger(__name__)
     try:
+        # Diagnostic: log auth header and user info to help debug 403 responses
+        auth_header = request.META.get('HTTP_AUTHORIZATION') or request.headers.get('Authorization') if hasattr(request, 'headers') else None
+        logger.debug('generate_from_template called: method=%s, auth_header=%s, user=%s, is_authenticated=%s',
+                     request.method, auth_header, getattr(request, 'user', None), getattr(request.user, 'is_authenticated', False))
         # Resolve template by id or name
         if isinstance(template_key, str) and template_key.isdigit():
             template = Template.objects.get(id=int(template_key))

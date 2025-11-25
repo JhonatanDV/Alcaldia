@@ -1,4 +1,7 @@
 from django.db import models
+import os
+import re
+import unicodedata
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
@@ -234,7 +237,56 @@ class Template(models.Model):
     css_content = models.TextField(blank=True, help_text="Optional CSS for the template")
 
     # Optional uploaded file (e.g., base xlsx or pdf)
-    template_file = models.FileField(upload_to='templates/', blank=True, null=True)
+    # Normalize filenames on upload to avoid unexpected tokens / unsafe chars
+    def _normalize_filename(filename: str) -> str:
+        """Return a safe, normalized filename.
+
+        - Decode percent-encoding if present
+        - Remove diacritics
+        - Replace spaces with underscores
+        - Remove unsafe characters
+        - Strip trailing underscore+token before extension (e.g. `_RibwlEF`)
+        """
+        try:
+            # Take basename
+            name = os.path.basename(filename or '')
+            # If URL-encoded, decode percent-escapes
+            try:
+                name = re.sub(r'%20', ' ', name)
+                from urllib.parse import unquote
+
+                name = unquote(name)
+            except Exception:
+                pass
+
+            # Split name and extension
+            base, ext = os.path.splitext(name)
+
+            # Strip trailing underscore+token before extension
+            base = re.sub(r'_[A-Za-z0-9]+$','', base)
+
+            # Normalize unicode to remove accents
+            nkfd = unicodedata.normalize('NFKD', base)
+            ascii_base = ''.join([c for c in nkfd if not unicodedata.combining(c)])
+
+            # Replace spaces and unsafe chars with underscore
+            ascii_base = re.sub(r'[^A-Za-z0-9._-]+', '_', ascii_base).strip('_')
+
+            # Ensure there's at least something
+            if not ascii_base:
+                ascii_base = 'file'
+
+            # Lowercase for consistency
+            final = f"{ascii_base}{ext}"
+            return final
+        except Exception:
+            return filename
+
+    def _templates_upload_to(instance, filename):
+        safe_name = Template._normalize_filename(filename)
+        return os.path.join('templates', safe_name)
+
+    template_file = models.FileField(upload_to=_templates_upload_to, blank=True, null=True)
 
     # Schema of variables expected by the template
     fields_schema = models.JSONField(default=dict, help_text='JSON schema describing template variables')

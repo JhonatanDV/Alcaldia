@@ -26,13 +26,69 @@ export function initAuth(onLogout?: () => void, onWarn?: (show: boolean, remaini
     }
   };
 
-  // Axios response interceptor: if any request returns 401 -> logout
+  // Axios response interceptor: if any request returns 401 -> try refresh, otherwise logout
+  const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '');
+
+  let isRefreshing = false;
+  let refreshPromise: Promise<string | null> | null = null;
+
+  const doRefreshToken = async (): Promise<string | null> => {
+    const refresh = typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null;
+    if (!refresh) return null;
+    try {
+      const res = await axios.post(`${API_URL}/api/token/refresh/`, { refresh });
+      const newAccess = res.data.access || res.data.token || null;
+      if (newAccess) {
+        localStorage.setItem('access_token', newAccess);
+        return newAccess;
+      }
+    } catch (e) {
+      // ignore and return null -> caller will logout
+    }
+    return null;
+  };
+
   const interceptorId = axios.interceptors.response.use(
     (response) => response,
-    (error) => {
-      if (error?.response?.status === 401) {
-        logout();
+    async (error) => {
+      const originalRequest = error?.config;
+      const status = error?.response?.status;
+
+      // If no response or not 401, forward
+      if (status !== 401 || !originalRequest) {
+        return Promise.reject(error);
       }
+
+      // Prevent trying to refresh repeatedly for refresh endpoint itself
+      if (originalRequest.url && originalRequest.url.includes('/api/token/refresh')) {
+        logout();
+        return Promise.reject(error);
+      }
+
+      try {
+        if (!isRefreshing) {
+          isRefreshing = true;
+          refreshPromise = doRefreshToken();
+        }
+
+        const newAccess = await (refreshPromise || Promise.resolve(null));
+
+        // finished refresh attempt
+        isRefreshing = false;
+        refreshPromise = null;
+
+        if (newAccess) {
+          // set header on original request and retry
+          originalRequest.headers = originalRequest.headers || {};
+          originalRequest.headers.Authorization = `Bearer ${newAccess}`;
+          return axios(originalRequest);
+        }
+      } catch (e) {
+        // fallthrough to logout
+      }
+
+      // If refresh didn't work, logout
+      logout();
       return Promise.reject(error);
     }
   );

@@ -176,6 +176,7 @@ export default function NewMaintenancePage() {
               equipmentCode={selectedEquipment.code}
               equipmentName={selectedEquipment.name}
               equipmentLocation={selectedEquipment.location}
+              equipmentDetails={selectedEquipment}
               onMaintenanceCreated={handleMaintenanceCreated}
             />
           </div>

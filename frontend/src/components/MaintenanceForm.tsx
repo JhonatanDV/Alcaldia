@@ -11,6 +11,7 @@ interface MaintenanceFormProps {
   equipmentCode?: string;
   equipmentName?: string;
   equipmentLocation?: string;
+  equipmentDetails?: any;
   onMaintenanceCreated: () => void;
 }
 
@@ -20,6 +21,7 @@ export default function MaintenanceForm({
   equipmentCode = "",
   equipmentName = "",
   equipmentLocation = "",
+  equipmentDetails = null,
   onMaintenanceCreated,
 }: MaintenanceFormProps) {
   const [formData, setFormData] = useState({
@@ -28,9 +30,9 @@ export default function MaintenanceForm({
     scheduled_date: "",
     performed_by: "",
   // relational ids (preferred)
-  sede_rel: null as number | null,
-  dependencia_rel: null as number | null,
-  subdependencia: null as number | null,
+  sede_rel: (equipmentDetails && equipmentDetails.sede_rel) ? (typeof equipmentDetails.sede_rel === 'object' ? equipmentDetails.sede_rel.id : equipmentDetails.sede_rel) : null as number | null,
+  dependencia_rel: (equipmentDetails && equipmentDetails.dependencia_rel) ? (typeof equipmentDetails.dependencia_rel === 'object' ? equipmentDetails.dependencia_rel.id : equipmentDetails.dependencia_rel) : null as number | null,
+  subdependencia: (equipmentDetails && equipmentDetails.subdependencia) ? (typeof equipmentDetails.subdependencia === 'object' ? equipmentDetails.subdependencia.id : equipmentDetails.subdependencia) : null as number | null,
   // legacy string fields (kept for compatibility)
   sede: equipmentLocation || "",
   dependencia: "",
@@ -138,22 +140,25 @@ export default function MaintenanceForm({
       formDataToSend.append("description", formData.description);
       formDataToSend.append("scheduled_date", formData.scheduled_date);
       formDataToSend.append("performed_by", formData.performed_by);
-      // Prefer relational IDs if set, otherwise fallback to legacy string fields
-      if (formData.sede_rel) {
-        formDataToSend.append("sede_rel", String(formData.sede_rel));
+      // If relational IDs were not set in formData (e.g., equipmentDetails passed but not used), try to fill from equipmentDetails
+      const sedeToSend = formData.sede_rel || (equipmentDetails && (equipmentDetails.sede_rel ? (typeof equipmentDetails.sede_rel === 'object' ? equipmentDetails.sede_rel.id : equipmentDetails.sede_rel) : null));
+      const dependenciaToSend = formData.dependencia_rel || (equipmentDetails && (equipmentDetails.dependencia_rel ? (typeof equipmentDetails.dependencia_rel === 'object' ? equipmentDetails.dependencia_rel.id : equipmentDetails.dependencia_rel) : null));
+      const subdepToSend = formData.subdependencia || (equipmentDetails && (equipmentDetails.subdependencia ? (typeof equipmentDetails.subdependencia === 'object' ? equipmentDetails.subdependencia.id : equipmentDetails.subdependencia) : null));
+
+      if (sedeToSend) {
+        formDataToSend.append("sede_rel", String(sedeToSend));
       } else {
         formDataToSend.append("sede", formData.sede);
       }
 
-      if (formData.dependencia_rel) {
-        formDataToSend.append("dependencia_rel", String(formData.dependencia_rel));
+      if (dependenciaToSend) {
+        formDataToSend.append("dependencia_rel", String(dependenciaToSend));
       } else {
         formDataToSend.append("dependencia", formData.dependencia);
       }
 
-      if (formData.subdependencia) {
-        formDataToSend.append("subdependencia", String(formData.subdependencia));
-        // also keep legacy oficina text if present
+      if (subdepToSend) {
+        formDataToSend.append("subdependencia", String(subdepToSend));
         if (formData.oficina) formDataToSend.append("oficina", formData.oficina);
       } else {
         formDataToSend.append("oficina", formData.oficina);

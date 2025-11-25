@@ -56,7 +56,8 @@ export default function NewEquipmentPage() {
       const token = localStorage.getItem('access_token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const res = await axios.get(`${API_URL}/api/config/sedes/`, { headers });
-      setSedes(res.data || []);
+      // API may return paginated results
+      setSedes(res.data.results || res.data || []);
     } catch (err) {
       console.error('Error cargando sedes', err);
     }
@@ -66,7 +67,8 @@ export default function NewEquipmentPage() {
     try {
       const token = localStorage.getItem('access_token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const res = await axios.get(`${API_URL}/api/config/dependencias/?sede=${sedeId}`, { headers });
+      // Prefer the nested endpoint that returns dependencias for a sede
+      const res = await axios.get(`${API_URL}/api/config/sedes/${sedeId}/dependencias/`, { headers });
       setDependencias(res.data || []);
     } catch (err) {
       console.error('Error cargando dependencias', err);
@@ -78,7 +80,8 @@ export default function NewEquipmentPage() {
     try {
       const token = localStorage.getItem('access_token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const res = await axios.get(`${API_URL}/api/config/subdependencias/?dependencia=${dependenciaId}`, { headers });
+      // Prefer the nested endpoint that returns subdependencias for a dependencia
+      const res = await axios.get(`${API_URL}/api/config/dependencias/${dependenciaId}/subdependencias/`, { headers });
       setSubdependencias(res.data || []);
     } catch (err) {
       console.error('Error cargando subdependencias', err);
@@ -312,31 +315,18 @@ export default function NewEquipmentPage() {
 
             <div>
               <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">
-                Ubicación
-              </label>
-              <input
-                type="text"
-                id="location"
-                name="location"
-                value={formData.location}
-                onChange={handleInputChange}
-                className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Ej: Oficina principal, piso 2"
-              />
-              <p className="mt-1 text-xs sm:text-sm text-gray-500">
-                Ubicación física (opcional)
-              </p>
-            </div>
-
-            <div>
-              <label htmlFor="subdependencia" className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2">
-                Subdependencia
+                Ubicación (Subdependencia) <span className="text-red-500">*</span>
               </label>
               <select
-                id="subdependencia"
-                name="subdependencia"
+                id="location"
+                name="location"
+                required
                 value={formData.subdependencia}
-                onChange={(e) => setFormData((prev) => ({ ...prev, subdependencia: e.target.value }))}
+                onChange={(e) => {
+                  const selectedId = e.target.value;
+                  const selectedText = e.target.options[e.target.selectedIndex]?.text || '';
+                  setFormData((prev) => ({ ...prev, subdependencia: selectedId, location: selectedText }));
+                }}
                 className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               >
                 <option value="">-- Seleccione una subdependencia --</option>
@@ -344,7 +334,7 @@ export default function NewEquipmentPage() {
                   <option key={s.id} value={s.id}>{s.name || s.nombre || s.label || s.id}</option>
                 ))}
               </select>
-              <p className="mt-1 text-xs sm:text-sm text-gray-500">Subárea o sección (opcional)</p>
+              <p className="mt-1 text-xs sm:text-sm text-gray-500">Seleccione la subdependencia donde se localiza el equipo (obligatorio)</p>
             </div>
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 sm:gap-4 pt-4 sm:pt-6 border-t">

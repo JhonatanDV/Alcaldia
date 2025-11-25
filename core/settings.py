@@ -204,6 +204,8 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
     "http://localhost:5173",  # Si usas Vite
     "http://127.0.0.1:5173",
     "http://192.168.20.74:3000",  # Agregar esta línea
@@ -231,4 +233,15 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
+]
+
+# Orígenes de confianza para la verificación CSRF (necesario cuando el frontend corre en otro origen)
+# Debe incluir el esquema (http://) para Django >= 4.x
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
 ]

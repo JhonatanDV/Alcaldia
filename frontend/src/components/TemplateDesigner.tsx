@@ -29,6 +29,52 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
   const [zoom, setZoom] = useState<number>(1.5);
   const [activeField, setActiveField] = useState<string | null>(null);
   const [localKeys, setLocalKeys] = useState<Record<string, string>>({});
+  const [notice, setNotice] = useState<string>('');
+
+  // Build a flattened list of sample-data keys for use in selects/datalists.
+  // If a sample value is an object (but not an array), expose its nested keys
+  // as `parent.child` so template authors can map to granular fields like
+  // activities.<task name> or equipment.serial_number.
+  const getSampleOptions = React.useCallback((): string[] => {
+    try {
+      const data = sampleData || {};
+      const out: string[] = [];
+      // Always include canonical maintenance field names so templates map to
+      // expected keys even when `sampleData` is empty or minimal.
+      const MAINTENANCE_FIELDS = [
+        'codigo','description','maintenance_type','status','scheduled_date','completion_date','hora_inicio','hora_final',
+        'equipment_code','equipment_name','equipment_serial','technician_name','technician_email',
+        'sede','dependencia','subdependencia','ubicacion','oficina','observations','observaciones_generales','observaciones_seguridad',
+        'activities','elaborado_por','revisado_por','aprobado_por','cost','version'
+      ];
+
+      // Seed with canonical fields first
+      MAINTENANCE_FIELDS.forEach((f) => out.push(f));
+
+      // Then expand actual sample data keys (including nested object keys)
+      Object.keys(data).forEach((k) => {
+        out.push(k);
+        const v = (data as any)[k];
+        if (v && typeof v === 'object' && !Array.isArray(v)) {
+          Object.keys(v).forEach((sub) => {
+            out.push(`${k}.${sub}`);
+          });
+        }
+        // If activities is an array of objects, expand first-level keys
+        if (Array.isArray(v)) {
+          v.forEach((item: any, idx: number) => {
+            if (item && typeof item === 'object') {
+              Object.keys(item).forEach((sub) => out.push(`${k}[${idx}].${sub}`));
+            }
+          });
+        }
+      });
+      // dedupe
+      return Array.from(new Set(out));
+    } catch (e) {
+      return [];
+    }
+  }, [sampleData]);
 
   useEffect(() => {
     const fetchTemplate = async () => {
@@ -130,7 +176,51 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
         return;
       }
 
-      const loadingTask = pdfjsLib.getDocument(pdfUrl);
+      // Before asking pdfjs to load the URL, do a lightweight HEAD request
+      // to verify the file exists (avoids pdfjs throwing MissingPDFException
+      // which is noisy and less actionable). Some storage backends may return
+      // URLs that no longer point to files; handle that gracefully.
+      // Try HEAD check; if it fails, attempt heuristic alternatives before giving up
+      const tryUrls: string[] = [pdfUrl];
+      const urlObj = new URL(pdfUrl, window.location.href);
+      try {
+        const fname = urlObj.pathname.split('/').pop() || '';
+        const decoded = decodeURIComponent(fname);
+        // Add decoded filename if it differs
+        if (decoded !== fname) {
+          tryUrls.push(`${urlObj.origin}${urlObj.pathname.replace(fname, encodeURIComponent(decoded))}`);
+          tryUrls.push(`${urlObj.origin}${urlObj.pathname.replace(fname, decoded)}`);
+        }
+        // Heuristic: strip trailing underscore+token before extension (e.g. _RibwlEF.pdf)
+        const baseNoToken = decoded.replace(/_[A-Za-z0-9]+(?=\.pdf$)/i, '');
+        if (baseNoToken && baseNoToken !== decoded) {
+          tryUrls.push(`${urlObj.origin}${urlObj.pathname.replace(fname, encodeURIComponent(baseNoToken))}`);
+          tryUrls.push(`${urlObj.origin}${urlObj.pathname.replace(fname, baseNoToken)}`);
+        }
+      } catch (e) {
+        // ignore URL parsing errors and fall back to original
+      }
+
+      let foundPdfUrl: string | null = null;
+      for (const u of tryUrls) {
+        try {
+          const head = await fetch(u, { method: 'HEAD' });
+          if (head.ok) {
+            foundPdfUrl = u;
+            break;
+          }
+        } catch (err) {
+          // try next
+        }
+      }
+      if (!foundPdfUrl) {
+        console.error('PDF HEAD check failed for all heuristics', pdfUrl, tryUrls);
+        setError(`No se encontró el archivo PDF en la URL: ${pdfUrl}`);
+        setLoading(false);
+        return;
+      }
+
+      const loadingTask = pdfjsLib.getDocument(foundPdfUrl);
       const pdf = await loadingTask.promise;
       const page = await pdf.getPage(1);
       const viewport = page.getViewport({ scale: zoom });
@@ -197,11 +287,26 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
     return;
   }, [markers, previewOnCanvas, previewEnabled, previewObj, sampleData, drawOverlay]);
 
-  // Keep a local editable copy of marker keys to avoid committing changes on every keystroke
+  // Initialize/merge a local editable copy of marker keys. Do not overwrite
+  // user edits when only marker positions change — preserve existing localKeys
+  // entries and only add missing keys from markers. This prevents losing the
+  // "map_to" values when the user drags/moves fields.
   useEffect(() => {
-    const map: Record<string, string> = {};
-    markers.forEach((m) => { map[m.key] = (m as any).map_to ?? m.key; });
-    setLocalKeys(map);
+    setLocalKeys((prev) => {
+      const map: Record<string, string> = { ...prev };
+      markers.forEach((m) => {
+        // if we've already got an entry for this marker key, keep it
+        if (!(m.key in map)) {
+          map[m.key] = (m as any).map_to ?? m.key;
+        }
+      });
+      // remove keys that no longer exist in markers
+      Object.keys(map).forEach((k) => {
+        if (!markers.find((m) => m.key === k)) delete map[k];
+      });
+      return map;
+    });
+    // Intentionally do not depend on localKeys here — we merge into it.
   }, [markers]);
 
   // Ensure ghost element exists for dragging without causing React re-renders
@@ -309,6 +414,28 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
     };
   }, [markers, previewEnabled, previewObj, sampleData]);
 
+  // After each render where markers or canvas dimensions change, update the
+  // absolute position of overlay DOM nodes using direct DOM APIs. This avoids
+  // using the JSX `style` prop (which the linter flags) while keeping
+  // positions accurate and dynamic.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    markers.forEach((m) => {
+      try {
+        const el = containerRef.current?.querySelector(`[data-marker-key="${m.key}"]`) as HTMLElement | null;
+        if (el) {
+          const { x, y } = fromPct(m.x_pct, m.y_pct);
+          el.style.left = `${x}px`;
+          el.style.top = `${y}px`;
+        }
+      } catch (e) {
+        // ignore per-element errors
+      }
+    });
+  }, [markers, pdfUrl, zoom]);
+
   // Click on canvas to position active field (if selected)
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (!activeField) return;
@@ -326,9 +453,81 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
   const addMarker = () => {
     const key = `field_${Date.now()}`;
     setMarkers((prev) => [...prev, { key, x_pct: 0.1, y_pct: 0.1, page: 1 }]);
+    // Assign a sensible default mapping for the new marker: prefer a canonical
+    // maintenance field that is not yet used as a mapping, fallback to marker key.
+    setLocalKeys((prev) => {
+      const next = { ...prev };
+      const opts = getSampleOptions();
+      // prefer first MAINTENANCE_FIELDS-like option (opts already seeds them first)
+      const preferred = opts.find((o) => !Object.values(next).includes(o));
+      next[key] = preferred || key;
+      return next;
+    });
   };
 
-  const removeMarker = (key: string) => setMarkers((prev) => prev.filter((m) => m.key !== key));
+  // Auto-map heuristic: try to match marker keys to the available sample options
+  // and canonical maintenance fields. Only assign mappings for markers that
+  // currently equal their key (i.e., user hasn't manually mapped them).
+  const autoMap = () => {
+    const opts = getSampleOptions();
+    const normalize = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const normOpts = opts.map((o) => ({ raw: o, norm: normalize(o) }));
+
+    setLocalKeys((prev) => {
+      const next = { ...prev };
+      const used = new Set(Object.values(prev));
+
+      markers.forEach((m) => {
+        const current = prev[m.key] ?? m.key;
+        // Don't overwrite explicit mappings
+        if (current && current !== m.key) return;
+        const mk = m.key;
+        const nmk = normalize(mk);
+
+        // 1) exact normalized match
+        let found = normOpts.find((o) => o.norm === nmk);
+        // 2) contains/substring match
+        if (!found) found = normOpts.find((o) => o.norm.includes(nmk) || nmk.includes(o.norm));
+        // 3) token match (split marker key)
+        if (!found) {
+          const tokens = mk.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+          for (const t of tokens) {
+            found = normOpts.find((o) => o.norm.includes(t));
+            if (found) break;
+          }
+        }
+        // 4) fallback to first unused option
+        if (!found) {
+          const firstUnused = normOpts.find((o) => !used.has(o.raw));
+          found = firstUnused || normOpts[0];
+        }
+
+        if (found) {
+          next[m.key] = found.raw;
+          used.add(found.raw);
+        } else {
+          next[m.key] = m.key;
+        }
+      });
+
+      return next;
+    });
+
+    // show brief inline notice instead of blocking alert
+    try {
+      setNotice('Auto-map completado');
+      setTimeout(() => setNotice(''), 2500);
+    } catch (e) {}
+  };
+
+  const removeMarker = (key: string) => {
+    setMarkers((prev) => prev.filter((m) => m.key !== key));
+    setLocalKeys((prev) => {
+      const next = { ...prev };
+      if (key in next) delete next[key];
+      return next;
+    });
+  };
 
   const updateMarkerKey = (oldKey: string, newKeyRaw: string) => {
     const newKey = (newKeyRaw || '').trim();
@@ -343,6 +542,18 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
         counter += 1;
       }
       return prev.map((m) => (m.key === oldKey ? { ...m, key: finalKey } : m));
+    });
+    // Move any existing localKeys mapping from the old key to the new one,
+    // so the user's "map_to" selection is preserved when renaming a field.
+    setLocalKeys((prev) => {
+      const next = { ...prev };
+      if (oldKey in next) {
+        next[newKey] = next[oldKey];
+        delete next[oldKey];
+      } else {
+        next[newKey] = newKey;
+      }
+      return next;
     });
   };
 
@@ -384,6 +595,24 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
     }
   };
 
+  // After zoom changes we may need to re-render the PDF and ensure DOM overlay
+  // positions are recalculated. Trigger a small redraw/refresh so markers' DOM
+  // positions (which rely on getBoundingClientRect) are in sync with the
+  // rendered canvas.
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      try {
+        await renderTemplate();
+        if (previewOnCanvas) drawOverlay();
+        // nudge a React render so computed positions in JSX are recalculated
+        setMarkers((prev) => [...prev]);
+      } catch (e) {
+        // ignore
+      }
+    }, 80);
+    return () => clearTimeout(t);
+  }, [zoom]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center p-6 bg-black bg-opacity-50">
       <div className="bg-white rounded shadow-lg w-full max-w-4xl max-h-[90vh] overflow-auto p-4">
@@ -409,6 +638,7 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
                 {markers.map((m) => (<option key={m.key} value={m.key}>{m.key}</option>))}
               </select>
             </div>
+            <button onClick={autoMap} className="px-3 py-1 bg-yellow-500 text-white rounded">Auto-map</button>
             <button onClick={saveSchema} className="px-3 py-1 bg-green-600 text-white rounded">Guardar posiciones</button>
             <button
               onClick={async () => {
@@ -427,6 +657,7 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
             </button>
             <button onClick={onClose} className="px-3 py-1 bg-gray-300 rounded">Cerrar</button>
           </div>
+          {notice && <div className="ml-3 text-sm text-green-600">{notice}</div>}
         </div>
 
         {loading && <div>Cargando plantilla...</div>}
@@ -434,7 +665,7 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
 
         <div className="flex flex-col md:flex-row gap-4">
           <div ref={containerRef} onMouseUp={handleMouseUp} className="relative border flex-1 min-h-[200px]" onClick={handleCanvasClick}>
-            <canvas ref={canvasRef} style={{ display: pdfUrl ? 'block' : 'none', maxWidth: '100%', height: 'auto' }} />
+            <canvas ref={canvasRef} className={`${pdfUrl ? 'block' : 'hidden'} max-w-full h-auto`} />
 
             {/* Overlay markers */}
             {markers.map((m) => {
@@ -445,8 +676,8 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
                 <div
                     key={m.key}
                     onMouseDown={(e) => handleMouseDown(e, m.key)}
-                    style={{ position: 'absolute', left: pos.x, top: pos.y, cursor: 'move' }}
-                    className="bg-indigo-600 border border-indigo-700 px-2 py-1 rounded max-w-xs shadow-md"
+                    data-marker-key={m.key}
+                    className="absolute cursor-move bg-indigo-600 border border-indigo-700 px-2 py-1 rounded max-w-xs shadow-md"
                   >
                       <div className="flex items-center gap-2">
                         <strong className="text-xs text-white">{previewText}</strong>
@@ -455,6 +686,8 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
                 </div>
               );
             })}
+            {/* Position overlays via DOM after render to avoid inline JSX styles (linter) */}
+            {null}
           </div>
 
           {/* Side panel: editable list of markers */}
@@ -476,6 +709,7 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
                   <label className="text-xs text-gray-600">Clave (nombre del campo)</label>
                   <input
                     value={localKeys[m.key] ?? m.key}
+                    list={`field-suggestions-${m.key}`}
                     onChange={(e) => setLocalKeys((prev) => ({ ...prev, [m.key]: e.target.value }))}
                     onBlur={() => {
                       const newVal = (localKeys[m.key] || '').trim();
@@ -483,6 +717,8 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
                     }}
                     onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur(); } }}
                     className="w-full px-2 py-1 border rounded text-sm mb-1"
+                    placeholder={`Clave para ${m.key}`}
+                    aria-label={`Clave para ${m.key}`}
                   />
 
                   <label htmlFor={`field-map-${m.key}`} className="text-xs text-gray-600">Mapear a dato de muestra</label>
@@ -494,10 +730,13 @@ export default function TemplateDesigner({ templateId, onClose, sampleData }: { 
                     aria-label={`Mapear campo ${m.key} a dato de muestra`}
                   >
                     <option value={m.key}>(usar clave actual)</option>
-                    {Object.keys(sampleData || {}).map((k) => (
+                    {getSampleOptions().map((k) => (
                       <option key={k} value={k}>{k}</option>
                     ))}
                   </select>
+                  <datalist id={`field-suggestions-${m.key}`}>
+                    {getSampleOptions().map((k) => (<option key={k} value={k} />))}
+                  </datalist>
 
                   <label htmlFor={`field-page-${m.key}`} className="text-xs text-gray-600">Página</label>
                   <input

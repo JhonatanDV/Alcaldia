@@ -72,5 +72,10 @@ urlpatterns = [
 
 # Serve media files during development
 if settings.DEBUG:
+    # Intercept media/template requests and try a normalized-filename fallback
+    from api.views_files import media_template_fallback
+    urlpatterns += [
+        path('media/<path:subpath>', media_template_fallback),
+    ]
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
