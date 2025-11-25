@@ -56,6 +56,8 @@ def create_users_and_groups():
         ('tecnico1', 'tecnico1@alcaldia.gov.co', 'Tech123!', False, False, tech_group),
         ('tecnico2', 'tecnico2@alcaldia.gov.co', 'Tech123!', False, False, tech_group),
         ('tecnico3', 'tecnico3@alcaldia.gov.co', 'Tech123!', False, False, tech_group),
+        # Usuario móvil con privilegios de administrador
+        ('movil1', 'movil1@alcaldia.gov.co', 'Movil123!', True, True, admin_group),
     ]
     
     created_users = []
@@ -519,6 +521,7 @@ def main():
         print("\n💡 Credenciales de acceso:")
         print("   Admin: admin1 / Admin123!")
         print("   Técnico: tecnico1 / Tech123!")
+        print("   Móvil (Administrador): movil1 / Movil123!")
         print("\n")
         
     except Exception as e:
