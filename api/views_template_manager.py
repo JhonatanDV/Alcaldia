@@ -397,24 +397,57 @@ def generate_report(request):
             mapped_context = {}
 
     render_context = {**(data or {}), **(mapped_context or {})}
+
+    # Determine template type: prefer template_obj if available, else active
+    template_type = 'pdf'
+    if template_obj is not None:
+        template_type = getattr(template_obj, 'type', 'pdf') or 'pdf'
+    elif active is not None:
+        template_type = getattr(active, 'type', 'pdf') or 'pdf'
+
     # Allow clients to request Excel generation using the original .xlsx template
     format_type = request.data.get('format') or request.query_params.get('format') or 'pdf'
-    if format_type == 'excel':
+    if format_type == 'excel' or template_type == 'excel':
+        # Determine which Excel generator to use based on template name or equipment type
+        template_name = ''
+        if template_obj:
+            template_name = (template_obj.name or '').lower()
+        
+        equipment_type = ''
+        if maintenance.equipment:
+            equipment_type = (maintenance.equipment.equipment_type or '').lower()
+        
+        # Use printer/scanner generator if template or equipment indicates it
+        is_printer_scanner = (
+            'impresora' in template_name or 
+            'escaner' in template_name or 
+            'scanner' in template_name or
+            'printer' in template_name or
+            'impresora' in equipment_type or
+            'escaner' in equipment_type or
+            'scanner' in equipment_type or
+            'printer' in equipment_type
+        )
+        
         try:
-            # Prefer template-based generator that preserves the original Excel format
-            from .services.excel_report_generator import ExcelReportGenerator
-        except Exception:
-            ExcelReportGenerator = None
-
-        if ExcelReportGenerator is None:
-            return Response({'error': 'Generador Excel no disponible en el servidor'}, status=501)
+            if is_printer_scanner:
+                from .services.printer_scanner_excel_generator import PrinterScannerExcelGenerator
+                generator = PrinterScannerExcelGenerator()
+                filename_prefix = 'rutina_impresora_escaner'
+            else:
+                from .services.excel_report_generator import ExcelReportGenerator
+                generator = ExcelReportGenerator()
+                filename_prefix = 'rutina_mantenimiento'
+        except Exception as e:
+            return Response({'error': f'Generador Excel no disponible: {str(e)}'}, status=501)
 
         try:
-            excel_bytes = ExcelReportGenerator().generate_report(maintenance)
+            excel_bytes = generator.generate_report(maintenance)
             # Save to default storage so it appears in reports list
             from django.core.files.base import ContentFile
             from django.core.files.storage import default_storage
-            filename = f"reports/rutina_mantenimiento_{maintenance.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            eq_code = maintenance.equipment.code if maintenance.equipment else maintenance.id
+            filename = f"reports/{filename_prefix}_{eq_code}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
             file_path = default_storage.save(filename, ContentFile(excel_bytes))
 
             # Create Report record
@@ -429,14 +462,15 @@ def generate_report(request):
             except Exception:
                 report = None
 
-            # Return URL to frontend
-            url = request.build_absolute_uri(default_storage.url(file_path)) if file_path else None
-            return Response({'pdf_file': url, 'message': 'Excel generado correctamente', 'report_id': getattr(report, 'id', None)})
+            # Return Excel file as blob for frontend download
+            response = HttpResponse(excel_bytes, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename="{filename_prefix}_{eq_code}.xlsx"'
+            return response
         except Exception as e:
             return Response({'error': str(e)}, status=500)
 
     # Generate PDF
-    if active.type == 'pdf':
+    if template_type == 'pdf':
         overlays = None
         try:
             overlays_field = request.data.get('_overlays') or request.data.get('overlays')
@@ -450,11 +484,13 @@ def generate_report(request):
             overlays = None
 
         background_bytes = None
+        # Try template_obj first, then active for background file
+        tpl_with_file = template_obj if template_obj and getattr(template_obj, 'template_file', None) else active
         try:
-            if active.template_file:
-                active.template_file.open('rb')
-                background_bytes = active.template_file.read()
-                active.template_file.close()
+            if tpl_with_file and tpl_with_file.template_file:
+                tpl_with_file.template_file.open('rb')
+                background_bytes = tpl_with_file.template_file.read()
+                tpl_with_file.template_file.close()
         except Exception:
             background_bytes = None
 
@@ -497,9 +533,12 @@ def generate_report(request):
             generated_by=request.user
         )
 
-        # Return the URL
-        pdf_url = request.build_absolute_uri(default_storage.url(file_path))
-        return Response({'pdf_file': pdf_url, 'message': 'Reporte generado exitosamente'})
+        # Return PDF as blob for frontend download
+        pdf_file.seek(0)
+        pdf_content = pdf_file.read()
+        response = HttpResponse(pdf_content, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{name_for_file}_{maintenance.id}.pdf"'
+        return response
     else:
         return Response({'error': 'Active template is not PDF type'}, status=400)
 
@@ -575,7 +614,18 @@ def generate_from_template(request, template_key):
 
         if not template:
             return Response({'error': 'Plantilla no encontrada'}, status=404)
+        
+        # Get data from request or load from maintenance if maintenance_id is provided
         data = request.data.get('data', {})
+        maintenance_id = request.data.get('maintenance_id')
+        
+        # If maintenance_id is provided, load serialized maintenance data
+        if maintenance_id and not data:
+            try:
+                from .services.maintenance_serializer import serialize_maintenance
+                data = serialize_maintenance(int(maintenance_id))
+            except Exception as e:
+                return Response({'error': f'Error cargando datos del mantenimiento: {str(e)}'}, status=400)
 
         # Build mapped context from template.fields_schema like in generate_report
         def _resolve_path(obj, path):

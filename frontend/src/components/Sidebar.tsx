@@ -124,9 +124,8 @@ export default function Sidebar({ userRole: propUserRole, onLogout }: { userRole
     { name: 'Reportes', href: '/reports', roles: ['admin', 'technician'], icon: (
       <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3h18v18H3V3zM7 7h10M7 11h10M7 15h6"/></svg>
     ), submenu: [
-      { name: 'Crear Reporte', href: '/reports/create', roles: ['admin', 'technician'] },
-  { name: 'Plantillas', href: '/reports/templates', roles: ['admin', 'technician'] },
-      { name: 'Generados', href: '/reports/list', roles: ['admin', 'technician'] },
+      { name: 'Generar Reporte', href: '/reports/create', roles: ['admin', 'technician'] },
+      { name: 'Reportes Generados', href: '/reports/list', roles: ['admin', 'technician'] },
     ] },
     
     { name: 'Ubicaciones', href: '/admin/locations', roles: ['admin'], icon: (

@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
+import { MaintenanceReportButton } from '@/components/MaintenanceReportButton';
 import axios from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -249,6 +250,17 @@ export default function CreateReportPage() {
                   Ver Reportes Generados
                 </button>
               </div>
+
+              {/* Quick export button that uses the existing dropdowns */}
+              {selectedTemplate && selectedMaintenance && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Exportar:</h4>
+                  <MaintenanceReportButton
+                    maintenanceId={Number(selectedMaintenance)}
+                    templateId={selectedTemplate}
+                  />
+                </div>
+              )}
             </form>
 
             <div className="mt-6 pt-6 border-t border-gray-200">

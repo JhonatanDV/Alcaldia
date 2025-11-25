@@ -6,14 +6,20 @@ export class ReportService {
     return localStorage.getItem('access_token') || localStorage.getItem('token') || '';
   }
 
-  async generateReport(maintenanceId: number, format: 'pdf' | 'excel' | 'image'): Promise<Blob> {
+  async generateReport(maintenanceId: number, format: 'pdf' | 'excel' | 'image', templateId?: number | string): Promise<Blob> {
+    const payload: any = { maintenance_id: maintenanceId, format };
+    if (templateId !== undefined && templateId !== null && templateId !== '') {
+      // backend accepts `template_id` or `template`/`template_name` keys
+      payload.template_id = templateId;
+    }
+
     const response = await fetch(`${this.baseUrl}/api/reports/generate/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${this.getToken()}`,
       },
-      body: JSON.stringify({ maintenance_id: maintenanceId, format }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
