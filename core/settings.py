@@ -237,7 +237,6 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
-<<<<<<< HEAD
 # Orígenes de confianza para la verificación CSRF (necesario cuando el frontend corre en otro origen)
 # Debe incluir el esquema (http://) para Django >= 4.x
 CSRF_TRUSTED_ORIGINS = [
@@ -248,11 +247,9 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
-=======
 # Configure CSRF trusted origins when running with DEBUG=False
 CSRF_TRUSTED_ORIGINS = []
 if not DEBUG:
     # ALLOWED_HOSTS is read from env and may contain comma-separated values
     # Build https:// entries for trusted origins (Certbot/HTTPS expected)
     CSRF_TRUSTED_ORIGINS = [f"https://{h.strip()}" for h in ALLOWED_HOSTS if h.strip()]
->>>>>>> e10473956fead6fcde46a3d22f53fd8bbbb71892
