@@ -231,7 +231,8 @@ class FilterOptionsView(APIView):
     def get(self, request):
         sedes = list(Sede.objects.filter().values_list('nombre', flat=True).distinct())
         dependencias = list(Dependencia.objects.filter().values_list('nombre', flat=True).distinct())
-        maintenance_types = [t[0] for t in Maintenance.MAINTENANCE_TYPES]
+        # Get unique maintenance types from existing maintenances
+        maintenance_types = list(Maintenance.objects.exclude(maintenance_type__isnull=True).exclude(maintenance_type='').values_list('maintenance_type', flat=True).distinct())
         statuses = [s[0] for s in Maintenance.STATUS_CHOICES]
         technicians = list(User.objects.filter(is_active=True).values('id', 'first_name', 'last_name'))
 
