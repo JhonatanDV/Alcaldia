@@ -1,7 +1,6 @@
  'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import Layout from '../../../components/Layout';
 
@@ -38,14 +37,19 @@ type TabType = 'sedes' | 'dependencias' | 'subdependencias';
 
 export default function LocationManagementPage() {
   const [activeTab, setActiveTab] = useState<TabType>('sedes');
-  const searchParams = useSearchParams();
 
+  // useSearchParams from next/navigation can cause prerendering issues
+  // when Next tries to statically render the page. Use a client-only
+  // approach based on window.location.search inside useEffect so it
+  // only runs on the client and avoids the need for Suspense.
   useEffect(() => {
-    const tab = searchParams?.get?.('tab');
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
     if (tab && ['sedes', 'dependencias', 'subdependencias'].includes(tab)) {
       setActiveTab(tab as TabType);
     }
-  }, [searchParams]);
+  }, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
