@@ -55,7 +55,7 @@ export default function NewEquipmentPage() {
     try {
       const token = localStorage.getItem('access_token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const res = await axios.get(`${API_URL}/api/config/sedes/`, { headers });
+      const res = await axios.get(`${API_URL}/api/ubicaciones/sedes/`, { headers });
       // API may return paginated results
       setSedes(res.data.results || res.data || []);
     } catch (err) {
@@ -68,7 +68,7 @@ export default function NewEquipmentPage() {
       const token = localStorage.getItem('access_token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       // Prefer the nested endpoint that returns dependencias for a sede
-      const res = await axios.get(`${API_URL}/api/config/sedes/${sedeId}/dependencias/`, { headers });
+      const res = await axios.get(`${API_URL}/api/ubicaciones/sedes/${sedeId}/dependencias/`, { headers });
       setDependencias(res.data || []);
     } catch (err) {
       console.error('Error cargando dependencias', err);
@@ -81,7 +81,7 @@ export default function NewEquipmentPage() {
       const token = localStorage.getItem('access_token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       // Prefer the nested endpoint that returns subdependencias for a dependencia
-      const res = await axios.get(`${API_URL}/api/config/dependencias/${dependenciaId}/subdependencias/`, { headers });
+      const res = await axios.get(`${API_URL}/api/ubicaciones/dependencias/${dependenciaId}/subdependencias/`, { headers });
       setSubdependencias(res.data || []);
     } catch (err) {
       console.error('Error cargando subdependencias', err);

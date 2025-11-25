@@ -134,11 +134,7 @@ export default function Sidebar({ userRole: propUserRole, onLogout }: { userRole
     ) },
     { name: 'Ubicaciones', href: '/admin/locations', roles: ['admin'], icon: (
       <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z"/></svg>
-    ), submenu: [
-      { name: 'Sedes', href: '/admin/locations?tab=sedes', roles: ['admin'] },
-      { name: 'Dependencias', href: '/admin/locations?tab=dependencias', roles: ['admin'] },
-      { name: 'Subdependencias', href: '/admin/locations?tab=subdependencias', roles: ['admin'] },
-    ] },
+    ) },
     { name: 'Usuarios', href: '/admin/users', roles: ['admin'], icon: (
       <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zM4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
     ) },

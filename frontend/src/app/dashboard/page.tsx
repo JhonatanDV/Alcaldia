@@ -93,7 +93,7 @@ export default function DashboardPage() {
         axios.get(`${API_URL}/api/dashboard/recent-activity/`, { headers, params: filters }),
         axios.get(`${API_URL}/api/dashboard/filter-options/`, { headers }),
         axios.get(`${API_URL}/api/dashboard/equipment/`, { headers, params: filters }),
-        axios.get(`${API_URL}/api/config/subdependencias/`, { headers }),
+        axios.get(`${API_URL}/api/ubicaciones/subdependencias/`, { headers }),
       ]);
 
       const overview = statsResponse.data.overview || {};
