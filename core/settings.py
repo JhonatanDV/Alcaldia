@@ -18,20 +18,22 @@ from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load environment variables from .env at project root (if present)
-load_dotenv(str(BASE_DIR / '.env'))
+# Load environment variables from .env at project root (if present).
+# Use override=True so changes in .env replace any variables already set
+# in the process environment (mod_wsgi may set env vars before loading).
+load_dotenv(str(BASE_DIR / '.env'), override=True)
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-agm#5w!o1o0#(htlsunp!6@iiql47*ao!p!be%eu@wvcl%kl01'
+# SECURITY: load secret and debug from environment (set in .env)
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-agm#5w!o1o0#(htlsunp!6@iiql47*ao!p!be%eu@wvcl%kl01')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# DEBUG should be False in production. Accept several truthy values from env.
+DEBUG = str(os.getenv('DJANGO_DEBUG', 'False')).lower() in ('1', 'true', 'yes')
 
-ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1', '192.168.20.149', '10.170.1.103', '192.168.1.103']
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
 
 
 # Application definition
@@ -232,3 +234,10 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
 ]
+
+# Configure CSRF trusted origins when running with DEBUG=False
+CSRF_TRUSTED_ORIGINS = []
+if not DEBUG:
+    # ALLOWED_HOSTS is read from env and may contain comma-separated values
+    # Build https:// entries for trusted origins (Certbot/HTTPS expected)
+    CSRF_TRUSTED_ORIGINS = [f"https://{h.strip()}" for h in ALLOWED_HOSTS if h.strip()]
