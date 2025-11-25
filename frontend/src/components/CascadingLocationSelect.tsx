@@ -94,7 +94,7 @@ export default function CascadingLocationSelect({
       const token = localStorage.getItem('access_token');
       if (!token) return;
 
-      const response = await axios.get(`${API_URL}/api/config/sedes/`, {
+      const response = await axios.get(`${API_URL}/api/ubicaciones/sedes/`, {
         headers: { Authorization: `Bearer ${token}` },
         params: { activo: true }
       });
@@ -115,7 +115,7 @@ export default function CascadingLocationSelect({
       const token = localStorage.getItem('access_token');
       if (!token) return;
 
-      const response = await axios.get(`${API_URL}/api/config/dependencias/por_sede/`, {
+      const response = await axios.get(`${API_URL}/api/ubicaciones/dependencias/por_sede/`, {
         headers: { Authorization: `Bearer ${token}` },
         params: { sede_id: sedeIdParam }
       });
@@ -137,7 +137,7 @@ export default function CascadingLocationSelect({
       const token = localStorage.getItem('access_token');
       if (!token) return;
 
-      const response = await axios.get(`${API_URL}/api/config/subdependencias/por_dependencia/`, {
+      const response = await axios.get(`${API_URL}/api/ubicaciones/subdependencias/por_dependencia/`, {
         headers: { Authorization: `Bearer ${token}` },
         params: { dependencia_id: dependenciaIdParam }
       });

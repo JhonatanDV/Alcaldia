@@ -64,6 +64,7 @@ urlpatterns = [
     path('templates/<str:template_key>/generate/', lazy_view('api.views_template_manager', 'generate_from_template'), name='generate_from_template'),
     path('templates/<str:template_key>/update/', lazy_view('api.views_template_manager', 'update_template'), name='update_template'),
     path('templates/<str:template_key>/delete/', lazy_view('api.views_template_manager', 'delete_template'), name='delete_template'),
+    path('templates/<str:template_key>/suggest-mappings/', lazy_view('api.views_template_manager', 'suggest_mappings'), name='suggest_mappings'),
     # Dashboard filter options
     path('dashboard/filter-options/', FilterOptionsView.as_view(), name='dashboard-filter-options'),
 ]

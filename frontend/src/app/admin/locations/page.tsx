@@ -115,19 +115,19 @@ export default function LocationManagementPage() {
       const headers = { Authorization: `Bearer ${token}` };
 
       if (activeTab === 'sedes') {
-        const response = await axios.get(`${API_URL}/api/config/sedes/`, { headers });
+        const response = await axios.get(`${API_URL}/api/ubicaciones/sedes/`, { headers });
         setSedes(response.data.results || response.data);
       } else if (activeTab === 'dependencias') {
         const [sedesRes, depRes] = await Promise.all([
-          axios.get(`${API_URL}/api/config/sedes/`, { headers }),
-          axios.get(`${API_URL}/api/config/dependencias/`, { headers }),
+          axios.get(`${API_URL}/api/ubicaciones/sedes/`, { headers }),
+          axios.get(`${API_URL}/api/ubicaciones/dependencias/`, { headers }),
         ]);
         setSedes(sedesRes.data.results || sedesRes.data);
         setDependencias(depRes.data.results || depRes.data);
       } else if (activeTab === 'subdependencias') {
         const [depRes, subRes] = await Promise.all([
-          axios.get(`${API_URL}/api/config/dependencias/`, { headers }),
-          axios.get(`${API_URL}/api/config/subdependencias/`, { headers }),
+          axios.get(`${API_URL}/api/ubicaciones/dependencias/`, { headers }),
+          axios.get(`${API_URL}/api/ubicaciones/subdependencias/`, { headers }),
         ]);
         setDependencias(depRes.data.results || depRes.data);
         setSubdependencias(subRes.data.results || subRes.data);
@@ -146,7 +146,7 @@ export default function LocationManagementPage() {
     if (!token) return;
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const resp = await axios.get(`${API_URL}/api/config/sedes/${sedeId}/dependencias/`, { headers });
+      const resp = await axios.get(`${API_URL}/api/ubicaciones/sedes/${sedeId}/dependencias/`, { headers });
       setSedeDependenciasMap((m) => ({ ...m, [sedeId]: resp.data }));
     } catch (err) {
       console.error('Error fetching dependencias for sede', err);
@@ -158,7 +158,7 @@ export default function LocationManagementPage() {
     if (!token) return;
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const resp = await axios.get(`${API_URL}/api/config/dependencias/${dependenciaId}/subdependencias/`, { headers });
+      const resp = await axios.get(`${API_URL}/api/ubicaciones/dependencias/${dependenciaId}/subdependencias/`, { headers });
       setDependenciaSubMap((m) => ({ ...m, [dependenciaId]: resp.data }));
     } catch (err) {
       console.error('Error fetching subdependencias for dependencia', err);
@@ -177,14 +177,14 @@ export default function LocationManagementPage() {
 
       if (editingSede) {
         // send nombre, direccion and activo
-        await axios.put(`${API_URL}/api/config/sedes/${editingSede.id}/`, {
+        await axios.put(`${API_URL}/api/ubicaciones/sedes/${editingSede.id}/`, {
           nombre: sedeForm.nombre,
           direccion: sedeForm.direccion,
           activo: sedeForm.activo,
         }, { headers });
         setSuccess('Sede actualizada correctamente');
       } else {
-        await axios.post(`${API_URL}/api/config/sedes/`, {
+        await axios.post(`${API_URL}/api/ubicaciones/sedes/`, {
           nombre: sedeForm.nombre,
           direccion: sedeForm.direccion,
           activo: sedeForm.activo,
@@ -211,7 +211,7 @@ export default function LocationManagementPage() {
 
     try {
       setLoading(true);
-      await axios.delete(`${API_URL}/api/config/sedes/${id}/`, {
+      await axios.delete(`${API_URL}/api/ubicaciones/sedes/${id}/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setSuccess('Sede eliminada correctamente');
@@ -262,14 +262,14 @@ export default function LocationManagementPage() {
       const headers = { Authorization: `Bearer ${token}` };
 
       if (editingDependencia) {
-        await axios.put(`${API_URL}/api/config/dependencias/${editingDependencia.id}/`, {
+        await axios.put(`${API_URL}/api/ubicaciones/dependencias/${editingDependencia.id}/`, {
           sede: dependenciaForm.sede,
           nombre: dependenciaForm.nombre,
           activo: dependenciaForm.activo,
         }, { headers });
         setSuccess('Dependencia actualizada correctamente');
       } else {
-        await axios.post(`${API_URL}/api/config/dependencias/`, {
+        await axios.post(`${API_URL}/api/ubicaciones/dependencias/`, {
           sede: dependenciaForm.sede,
           nombre: dependenciaForm.nombre,
           activo: dependenciaForm.activo,
@@ -296,7 +296,7 @@ export default function LocationManagementPage() {
 
     try {
       setLoading(true);
-      await axios.delete(`${API_URL}/api/config/dependencias/${id}/`, {
+      await axios.delete(`${API_URL}/api/ubicaciones/dependencias/${id}/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setSuccess('Dependencia eliminada correctamente');
@@ -347,14 +347,14 @@ export default function LocationManagementPage() {
       const headers = { Authorization: `Bearer ${token}` };
 
       if (editingSubdependencia) {
-        await axios.put(`${API_URL}/api/config/subdependencias/${editingSubdependencia.id}/`, {
+        await axios.put(`${API_URL}/api/ubicaciones/subdependencias/${editingSubdependencia.id}/`, {
           dependencia: subdependenciaForm.dependencia,
           nombre: subdependenciaForm.nombre,
           activo: subdependenciaForm.activo,
         }, { headers });
         setSuccess('Subdependencia actualizada correctamente');
       } else {
-        await axios.post(`${API_URL}/api/config/subdependencias/`, {
+        await axios.post(`${API_URL}/api/ubicaciones/subdependencias/`, {
           dependencia: subdependenciaForm.dependencia,
           nombre: subdependenciaForm.nombre,
           activo: subdependenciaForm.activo,
@@ -381,7 +381,7 @@ export default function LocationManagementPage() {
 
     try {
       setLoading(true);
-      await axios.delete(`${API_URL}/api/config/subdependencias/${id}/`, {
+      await axios.delete(`${API_URL}/api/ubicaciones/subdependencias/${id}/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setSuccess('Subdependencia eliminada correctamente');

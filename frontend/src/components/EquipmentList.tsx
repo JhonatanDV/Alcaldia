@@ -98,7 +98,7 @@ export default function EquipmentList({
   const fetchSedes = async () => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const res = await axios.get(`${API_URL}/api/config/sedes/`, { headers });
+      const res = await axios.get(`${API_URL}/api/ubicaciones/sedes/`, { headers });
       setSedes(res.data.results || res.data || []);
     } catch (err) {
       console.error('Error cargando sedes', err);
@@ -108,7 +108,7 @@ export default function EquipmentList({
   const fetchDependencias = async (sedeId: string | number) => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const res = await axios.get(`${API_URL}/api/config/dependencias/?sede=${sedeId}`, { headers });
+      const res = await axios.get(`${API_URL}/api/ubicaciones/dependencias/?sede=${sedeId}`, { headers });
       setDependencias(res.data.results || res.data || []);
     } catch (err) {
       console.error('Error cargando dependencias', err);
@@ -119,7 +119,7 @@ export default function EquipmentList({
   const fetchSubdependencias = async (dependenciaId: string | number) => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const res = await axios.get(`${API_URL}/api/config/subdependencias/?dependencia=${dependenciaId}`, { headers });
+      const res = await axios.get(`${API_URL}/api/ubicaciones/subdependencias/?dependencia=${dependenciaId}`, { headers });
       setSubdependencias(res.data.results || res.data || []);
     } catch (err) {
       console.error('Error cargando subdependencias', err);
