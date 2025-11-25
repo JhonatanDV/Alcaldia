@@ -817,8 +817,86 @@ def generate_from_template(request, template_key):
 
             return response
         elif template.type == 'excel':
-            # For excel templates you can implement mapping logic here or use a stored xlsx
-            return Response({'error': 'Excel templates not implemented yet'}, status=501)
+            # Generate Excel file from template
+            try:
+                from openpyxl import load_workbook
+                from openpyxl.styles import Font, Alignment
+                from io import BytesIO
+                
+                # Load the template file
+                if not template.template_file:
+                    return Response({'error': 'No hay archivo de plantilla Excel configurado'}, status=400)
+                
+                # Open the template
+                template.template_file.open('rb')
+                wb = load_workbook(template.template_file)
+                template.template_file.close()
+                
+                # Get the active sheet
+                ws = wb.active
+                
+                # Fill data based on fields_schema mapping
+                # The fields_schema should have cell references like {'A1': {'map_to': 'field_name'}}
+                if fs and isinstance(fs, dict):
+                    for cell_ref, meta in fs.items():
+                        map_to = meta.get('map_to') if isinstance(meta, dict) else (meta or cell_ref)
+                        val = mapped_context.get(cell_ref) or render_context.get(map_to)
+                        if val is not None:
+                            try:
+                                ws[cell_ref] = val
+                            except Exception:
+                                pass
+                
+                # Save to BytesIO
+                output = BytesIO()
+                wb.save(output)
+                output.seek(0)
+                content = output.read()
+                
+                # Save to storage
+                try:
+                    from django.core.files.base import ContentFile
+                    from django.core.files.storage import default_storage
+                    name_for_file = template.name or 'report'
+                    filename = f"reports/{name_for_file}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                    file_path = default_storage.save(filename, ContentFile(content))
+                except Exception:
+                    file_path = None
+                
+                # Create Report record
+                maintenance_obj = None
+                try:
+                    maint_id = request.data.get('maintenance_id')
+                    if maint_id:
+                        from .models import Maintenance
+                        maintenance_obj = Maintenance.objects.filter(id=int(maint_id)).first()
+                except Exception:
+                    maintenance_obj = None
+                
+                try:
+                    report = Report.objects.create(
+                        maintenance=maintenance_obj,
+                        title=f"Reporte {template.name}",
+                        content='',
+                        pdf_file=file_path or '',
+                        generated_by=request.user
+                    )
+                except Exception:
+                    report = None
+                
+                response = HttpResponse(content, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                response['Content-Disposition'] = f'attachment; filename="{template.name}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx"'
+                
+                try:
+                    if file_path:
+                        file_url = request.build_absolute_uri(default_storage.url(file_path))
+                        response['X-Saved-File-Url'] = file_url
+                except Exception:
+                    pass
+                
+                return response
+            except Exception as e:
+                return Response({'error': f'Error generando Excel: {str(e)}'}, status=500)
         else:
             return Response({'error': 'Tipo de plantilla no soportado'}, status=400)
     except Template.DoesNotExist:
