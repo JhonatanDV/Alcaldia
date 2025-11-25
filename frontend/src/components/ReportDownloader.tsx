@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { reportService } from "../lib/reportService";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
@@ -98,7 +99,7 @@ export default function ReportDownloader({ token, userRole }: ReportDownloaderPr
     );
   }
 
-  const generateReport = async (maintenanceId?: number) => {
+  const generateReport = async (maintenanceId?: number, format?: 'pdf' | 'excel') => {
     setGeneratingReport(true);
     setError("");
     if (!maintenanceId) {
@@ -108,6 +109,19 @@ export default function ReportDownloader({ token, userRole }: ReportDownloaderPr
     }
 
     try {
+      // If a format is provided, use the client-side reportService to request a file/blob
+      if (format) {
+        const blob = await reportService.generateReport(maintenanceId, format);
+        const ext = format === 'pdf' ? 'pdf' : 'xlsx';
+        const filename = `reporte_${maintenanceId}_${new Date().toISOString().split('T')[0]}.${ext}`;
+        reportService.downloadFile(blob, filename);
+
+        // Refresh reports list
+        await fetchReports();
+        return null;
+      }
+
+      // Default behavior: create/generate report resource via API and return its data
       const response = await axios.post(
         "http://127.0.0.1:8000/api/reports/generate/",
         {
