@@ -20,3 +20,6 @@ db.sqlite3
 # Archivos de IDE
 .vscode/
 .idea/
+
+media/reports/*.pdf
+media/templates/*.pdf
