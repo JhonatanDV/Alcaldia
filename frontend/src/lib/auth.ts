@@ -27,7 +27,7 @@ export function initAuth(onLogout?: () => void, onWarn?: (show: boolean, remaini
   };
 
   // Axios response interceptor: if any request returns 401 -> try refresh, otherwise logout
-  const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '');
+  const API_URL = process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
 
   let isRefreshing = false;
   let refreshPromise: Promise<string | null> | null = null;

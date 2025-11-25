@@ -5,7 +5,7 @@ import axios from 'axios';
 import Layout from '../../../components/Layout';
 import { getStoredUserRole } from '@/lib/role';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 interface Permission {
   id: number;

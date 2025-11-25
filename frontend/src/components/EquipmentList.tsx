@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 interface Equipment {
   id: number;
@@ -143,7 +143,7 @@ export default function EquipmentList({
       params.append('page_size', '1000');
 
       const queryString = params.toString();
-      const url = `http://127.0.0.1:8000/api/maintenances/?${queryString}`;
+      const url = `${API_URL}/api/maintenances/?${queryString}`;
 
       const response: any = await axios.get(url, { headers });
 

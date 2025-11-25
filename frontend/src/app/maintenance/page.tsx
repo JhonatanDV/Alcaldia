@@ -5,7 +5,7 @@ import axios from 'axios';
 import Layout from '../../components/Layout';
 import MaintenanceTable from '../../components/MaintenanceTable';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 interface Maintenance {
   id: number;
