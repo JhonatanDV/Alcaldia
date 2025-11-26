@@ -40,7 +40,7 @@ else:
     # When developing locally, allow common localhost names so tools and
     # reload servers don't trigger DisallowedHost. In production the
     # environment should set ALLOWED_HOSTS explicitly.
-    ALLOWED_HOSTS = ['127.0.0.1', 'localhost'] if str(os.getenv('DJANGO_DEBUG', 'False')).lower() in ('1', 'true', 'yes') else []
+    ALLOWED_HOSTS = ['*'] if str(os.getenv('DJANGO_DEBUG', 'False')).lower() in ('1', 'true', 'yes') else []
 
 
 # Application definition
